@@ -58,6 +58,7 @@ export const runCommentModerationScanner = async (specificChatId?: string): Prom
                 author: c.authorName,
                 commentText: c.textDisplay,
               });
+              await new Promise((r) => setTimeout(r, 200)); // Rate limit buffer
             }
           }
         } catch (err: any) {
