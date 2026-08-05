@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 import axios from 'axios';
 import { authGuard } from '../middleware/authGuard';
 import { prisma } from '../config/db';
-import { fetchRecentVideos, searchChannelVideos } from './youtubeVideos';
+import { fetchRecentVideos, searchChannelVideos, formatCount } from './youtubeVideos';
 import {
   updateVideoTitle,
   updateVideoDescription,
@@ -207,7 +207,7 @@ const renderVideoList = async (ctx: any, page: number = 1, isEdit: boolean = fal
 
     pageVideos.forEach((v, i) => {
       const num = startIndex + i + 1;
-      text += `${num}. <b>${v.title}</b>\n`;
+      text += `${num}. <b>${v.title}</b> — 👁️ ${formatCount(v.viewCount)}\n`;
 
       const btn = Markup.button.callback(`🎬 ${num}`, `vid_${v.id}`);
       if (i < 5) {
@@ -285,7 +285,7 @@ bot.command('search', async (ctx: any) => {
     let text = `🔍 <b>Found ${matches.length} video(s) matching "${query}":</b>\n\n`;
     const numberRow: any[] = [];
     matches.forEach((v, i) => {
-      text += `${i + 1}. <b>${v.title}</b>\n`;
+      text += `${i + 1}. <b>${v.title}</b> — 👁️ ${formatCount(v.viewCount)}\n`;
       numberRow.push(Markup.button.callback(`🎬 ${i + 1}`, `vid_${v.id}`));
     });
 
@@ -303,8 +303,11 @@ bot.action(/^vid_(.+)$/, async (ctx) => {
   if (!video) return ctx.reply('❌ <b>Video not found.</b>', { parse_mode: 'HTML' });
 
   const text =
-    `🎬 <b>${video.title}</b>\n` +
-    `🏷️ ${video.tags.slice(0, 5).join(', ') || 'No tags'}\n\n` +
+    `🎬 <b>${video.title}</b>\n\n` +
+    `👁️ <b>Views:</b> ${formatCount(video.viewCount)}\n` +
+    `👍 <b>Likes:</b> ${formatCount(video.likeCount)}\n` +
+    `💬 <b>Comments:</b> ${formatCount(video.commentCount)}\n\n` +
+    `🏷️ <b>Tags:</b> ${video.tags.slice(0, 5).join(', ') || 'No tags'}\n\n` +
     `<b>Choose an action:</b>`;
 
   const keyboard = Markup.inlineKeyboard([

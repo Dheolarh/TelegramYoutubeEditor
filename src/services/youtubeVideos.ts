@@ -11,8 +11,20 @@ export interface VideoItem {
   thumbnailUrl: string;
   duration: string;
   isShort: boolean;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
   publishedAt: string;
 }
+
+/**
+ * Format count numbers (e.g. 12500 -> 12.5K, 1500000 -> 1.5M).
+ */
+export const formatCount = (num: number): string => {
+  if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+  return num.toLocaleString();
+};
 
 /**
  * Helper to ensure a valid, unexpired access token for YouTube API calls.
@@ -100,11 +112,11 @@ export const fetchRecentVideos = async (
   const videoIds = playlistRes.data.items.map((item: any) => item.snippet.resourceId.videoId).join(',');
   if (!videoIds) return [];
 
-  // 3. Get full video details (snippet, contentDetails)
+  // 3. Get full video details (snippet, contentDetails, statistics)
   const videosRes = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
     params: {
       id: videoIds,
-      part: 'snippet,contentDetails',
+      part: 'snippet,contentDetails,statistics',
     },
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -123,6 +135,10 @@ export const fetchRecentVideos = async (
     const duration = item.contentDetails.duration || 'PT0S';
     const isShort = parseIsShort(duration, item.snippet.title, item.snippet.description || '');
 
+    const viewCount = parseInt(item.statistics?.viewCount || '0', 10);
+    const likeCount = parseInt(item.statistics?.likeCount || '0', 10);
+    const commentCount = parseInt(item.statistics?.commentCount || '0', 10);
+
     const videoData = {
       channelId: channelRecord.id,
       youtubeVideoId: item.id,
@@ -132,6 +148,9 @@ export const fetchRecentVideos = async (
       thumbnailUrl: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || '',
       duration,
       isShort,
+      viewCount,
+      likeCount,
+      commentCount,
       publishedAt: new Date(item.snippet.publishedAt),
     };
 
@@ -151,6 +170,9 @@ export const fetchRecentVideos = async (
       thumbnailUrl: saved.thumbnailUrl || '',
       duration: saved.duration || '',
       isShort: saved.isShort,
+      viewCount: saved.viewCount,
+      likeCount: saved.likeCount,
+      commentCount: saved.commentCount,
       publishedAt: saved.publishedAt?.toISOString() || '',
     });
   }
@@ -191,6 +213,9 @@ export const searchChannelVideos = async (
       thumbnailUrl: v.thumbnailUrl || '',
       duration: v.duration || '',
       isShort: v.isShort,
+      viewCount: v.viewCount,
+      likeCount: v.likeCount,
+      commentCount: v.commentCount,
       publishedAt: v.publishedAt?.toISOString() || '',
     }));
   }

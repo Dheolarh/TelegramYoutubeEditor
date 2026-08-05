@@ -60,6 +60,9 @@ model Video {
   thumbnailUrl   String?   @map("thumbnail_url")
   duration       String?
   isShort        Boolean   @default(false) @map("is_short")
+  viewCount      Int       @default(0) @map("view_count")
+  likeCount      Int       @default(0) @map("like_count")
+  commentCount   Int       @default(0) @map("comment_count")
   publishedAt    DateTime? @map("published_at")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
