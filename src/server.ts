@@ -29,9 +29,10 @@ app.use('/auth', authRouter);
 
 // Start Server & Launch Telegram Bot
 app.listen(PORT, async () => {
-  const publicUrl = process.env.RAILWAY_PUBLIC_DOMAIN
-    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-    : `http://localhost:${PORT}`;
+  const publicUrl =
+    process.env.GOOGLE_REDIRECT_URI?.replace('/auth/google/callback', '') ||
+    process.env.RENDER_EXTERNAL_URL ||
+    `http://localhost:${PORT}`;
 
   console.log(`🚀 Server running on ${publicUrl}`);
   console.log(`🔗 Google OAuth Redirect URL: ${publicUrl}/auth/google/callback`);
