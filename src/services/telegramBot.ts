@@ -156,17 +156,19 @@ const handleHelpCommand = async (ctx: any) => {
     `• <b>/start</b> - Welcome &amp; Channel Connection Status\n` +
     `• <b>/videos</b> - Browse &amp; manage your recent uploads\n` +
     `• <b>/search &lt;keyword&gt;</b> - Search your videos by title\n` +
+    `• <b>/livemode</b> - Real-time YouTube trend &amp; post suggestion engine\n` +
     `• <b>/help</b> - Show this help menu\n\n` +
     `<b>Available Video Features:</b>\n` +
     `✏️ Edit Titles, Descriptions &amp; Tags\n` +
     `🖼️ Upload Thumbnails by sending photos\n` +
     `💬 View &amp; Reply to top comments\n` +
-    `🤖 AI-Powered Metadata Optimization (Gemini / DeepSeek)`;
+    `🤖 AI-Powered Metadata Optimization (Gemini / DeepSeek)\n` +
+    `⚡ Live Mode Automated Trend Scanner`;
 
   await ctx.reply(text, {
     parse_mode: 'HTML',
     ...Markup.inlineKeyboard([
-      [Markup.button.callback('📹 Browse Videos', 'cmd_videos')],
+      [Markup.button.callback('📹 Browse Videos', 'cmd_videos'), Markup.button.callback('⚡ Live Mode', 'cmd_livemode')],
       [Markup.button.callback('🏠 Back to Start', 'cmd_start')],
     ]),
   });
@@ -185,13 +187,14 @@ const handleLiveModeCommand = async (ctx: any) => {
   }
 
   const user = await prisma.user.findUnique({ where: { telegramChatId } });
-  const isEnabled = user?.liveModeEnabled || false;
+  const isEnabled = (user as any)?.liveModeEnabled || false;
+  const intervalHours = process.env.LIVE_MODE_INTERVAL_HOURS || '6';
 
   const text = isEnabled
     ? `⚡ <b>LIVE MODE ENABLED</b> 🟢\n\n` +
       `The bot is actively polling YouTube for real-time trending videos, news, and viewer search autocomplete keywords in your channel's niche (<b>${connData.channel.title}</b>).\n\n` +
       `Whenever a viral trend is detected, the AI will research it and send you complete <b>Video Post Suggestions</b> (Title + Thumbnail + Description + Tags).\n\n` +
-      `<i>Status: Active (Polling YouTube every 6 hours)</i>`
+      `<i>Status: Active (Polling YouTube every ${intervalHours} hours)</i>`
     : `⚡ <b>LIVE MODE DISABLED</b> 🔴\n\n` +
       `Automatic YouTube trend polling is currently turned off.\n\n` +
       `Turn ON Live Mode to receive proactive AI video post concepts whenever viral trends break in your YouTube niche!`;
@@ -217,11 +220,14 @@ bot.action('cmd_live_toggle', async (ctx: any) => {
   const user = await prisma.user.findUnique({ where: { telegramChatId } });
   if (!user) return;
 
-  const newStatus = !user.liveModeEnabled;
+  const newStatus = !(user as any).liveModeEnabled;
   await prisma.user.update({
     where: { telegramChatId },
-    data: { liveModeEnabled: newStatus },
+    data: { liveModeEnabled: newStatus } as any,
   });
+
+  await handleLiveModeCommand(ctx);
+});
 
   await handleLiveModeCommand(ctx);
 });

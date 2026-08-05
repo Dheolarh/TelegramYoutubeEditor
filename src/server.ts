@@ -48,10 +48,13 @@ app.listen(PORT, async () => {
   // Launch Telegram Bot (Webhook on Production HTTPS, Polling on Local HTTP)
   await initTelegramBot(publicUrl);
 
-  // Schedule Proactive Trend Alert Scanner & Live Mode Scanner (Every 6 hours)
-  const SIX_HOURS = 6 * 60 * 60 * 1000;
-  setInterval(runTrendAlertScanner, SIX_HOURS);
-  setInterval(runLiveModeScanner, SIX_HOURS);
+  // Schedule Proactive Trend Alert Scanner & Live Mode Scanner
+  const liveModeHours = Number(process.env.LIVE_MODE_INTERVAL_HOURS) || 6;
+  const LIVE_MODE_INTERVAL_MS = liveModeHours * 60 * 60 * 1000;
+  console.log(`⏱️ Live Mode scanner scheduled to run every ${liveModeHours} hour(s)`);
+
+  setInterval(runTrendAlertScanner, LIVE_MODE_INTERVAL_MS);
+  setInterval(runLiveModeScanner, LIVE_MODE_INTERVAL_MS);
 });
 
 // Graceful Shutdown
