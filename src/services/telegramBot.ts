@@ -12,7 +12,13 @@ import {
   fetchVideoComments,
   replyToComment,
 } from './youtubeEdit';
-import { generateMetadataSuggestions } from './aiService';
+import {
+  generateAITitles,
+  generateAIDescription,
+  generateAITags,
+  generateAIPinnedComment,
+  generateAIThumbnail,
+} from './aiService';
 import { getGoogleAuthUrl } from './youtubeAuth';
 
 
@@ -412,60 +418,290 @@ bot.action(/^rc_(.+)$/, async (ctx) => {
   await ctx.reply('✍️ <b>Type your reply to this comment:</b>', { parse_mode: 'HTML' });
 });
 
-// ── AI Optimize ───────────────────────────────────────────────────────────────
+// Store transient AI outputs: Key = `${type}_${videoId}`
+const aiCacheMap = new Map<string, any>();
+
+// ── AI Optimize Sub-Menu (6 Buttons) ──────────────────────────────────────────
 bot.action(/^act_ai_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const video = await prisma.video.findUnique({ where: { id: ctx.match[1] } });
+  if (!video) return ctx.reply('❌ <b>Video not found.</b>', { parse_mode: 'HTML' });
+
+  const text =
+    `🤖 <b>AI Optimization Suite for:</b>\n"${video.title}"\n\n` +
+    `Select an AI optimization tool to generate and apply updates:`;
+
+  await ctx.reply(text, {
+    parse_mode: 'HTML',
+    ...Markup.inlineKeyboard([
+      [Markup.button.callback('1. 🖼️ Generate New Thumbnail', `ais_thumb_${video.id}`)],
+      [Markup.button.callback('2. ✏️ Generate New Title', `ais_title_${video.id}`)],
+      [Markup.button.callback('3. 📝 Generate New Description', `ais_desc_${video.id}`)],
+      [Markup.button.callback('4. 🏷️ Generate New Keywords/Tags', `ais_tags_${video.id}`)],
+      [Markup.button.callback('5. 📌 Create Pinned Comment', `ais_pincmt_${video.id}`)],
+      [Markup.button.callback('6. ↩️ Back to Video', `vid_${video.id}`)],
+    ]),
+  });
+});
+
+// 1. AI Generate Thumbnail
+bot.action(/^ais_thumb_(.+)$/, async (ctx) => {
   await ctx.answerCbQuery();
   const video = await prisma.video.findUnique({ where: { id: ctx.match[1] } });
   if (!video) return;
 
-  const provider = (process.env.AI_TEXT_PROVIDER || 'gemini').toUpperCase();
-  await ctx.reply(`🤖 <b>Running ${provider} AI Optimization...</b>`, { parse_mode: 'HTML' });
+  await ctx.reply('🤖 <b>Analyzing video title & generating high-CTR thumbnail...</b>\n<i>(This may take 5–10 seconds)</i>', { parse_mode: 'HTML' });
 
   try {
-    const suggestions = await generateMetadataSuggestions(video.title, video.description || '', video.tags, 'Technology');
+    const imageUrl = await generateAIThumbnail(video.title, video.thumbnailUrl || undefined);
+    aiCacheMap.set(`thumb_${video.id}`, imageUrl);
 
-    const text =
-      `🤖 <b>AI Suggestions for "${video.title}":</b>\n\n` +
-      `💡 <b>Titles:</b>\n` +
-      suggestions.titles.map((t, i) => `${i + 1}. "${t}"`).join('\n') +
-      `\n\n🏷️ <b>Tags:</b>\n${suggestions.tags.join(', ')}\n\n` +
-      `<b>Click to apply a title directly to YouTube:</b>`;
+    const caption = `🖼️ <b>AI Generated Thumbnail for:</b>\n"${video.title}"\n\nChoose an action below:`;
+    const keyboard = Markup.inlineKeyboard([
+      [
+        Markup.button.callback('✅ Apply', `aia_thumb_${video.id}`),
+        Markup.button.callback('🔄 Regenerate', `ais_thumb_${video.id}`),
+        Markup.button.callback('❌ Discard', `vid_${video.id}`),
+      ],
+    ]);
 
-    userStateMap.set(ctx.from.id.toString(), {
-      action: 'AWAITING_TITLE',
-      videoId: video.id,
-      youtubeVideoId: video.youtubeVideoId,
-      extraData: { suggestions },
-    });
-
-    await ctx.reply(text, {
-      parse_mode: 'HTML',
-      ...Markup.inlineKeyboard(suggestions.titles.map((_, i) => [
-        Markup.button.callback(`✅ Apply Title ${i + 1}`, `apply_title_${video.id}_${i}`),
-      ])),
-    });
+    if (imageUrl.startsWith('data:image')) {
+      const base64Data = imageUrl.split(',')[1];
+      const buffer = Buffer.from(base64Data, 'base64');
+      await ctx.replyWithPhoto({ source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
+    } else {
+      await ctx.replyWithPhoto(imageUrl, { caption, parse_mode: 'HTML', ...keyboard });
+    }
   } catch (err: any) {
-    await ctx.reply(`❌ <b>AI Error:</b> ${err.message}`, { parse_mode: 'HTML' });
+    await ctx.reply(`❌ <b>AI Thumbnail Error:</b> ${err.message}`, { parse_mode: 'HTML' });
   }
 });
 
-bot.action(/^apply_title_(.+)_(.+)$/, async (ctx) => {
+// Apply AI Thumbnail
+bot.action(/^aia_thumb_(.+)$/, async (ctx) => {
   await ctx.answerCbQuery();
   const telegramChatId = ctx.from.id.toString();
   const connData = await getConnectedChannel(telegramChatId);
-  const state = userStateMap.get(telegramChatId);
-  if (!connData || !state?.extraData?.suggestions) {
-    return ctx.reply('❌ <b>State expired. Run AI Optimize again.</b>', { parse_mode: 'HTML' });
+  const video = await prisma.video.findUnique({ where: { id: ctx.match[1] } });
+  const imageUrl = aiCacheMap.get(`thumb_${ctx.match[1]}`);
+
+  if (!connData || !video || !imageUrl) {
+    return ctx.reply('❌ <b>Session expired. Please click Generate New Thumbnail again.</b>', { parse_mode: 'HTML' });
   }
-  const selected = state.extraData.suggestions.titles[parseInt(ctx.match[2], 10)];
-  if (!selected) return;
+
+  await ctx.reply('⏳ <b>Uploading AI thumbnail directly to YouTube...</b>', { parse_mode: 'HTML' });
 
   try {
-    const updated = await updateVideoTitle(connData.user.id, state.youtubeVideoId, selected);
-    userStateMap.delete(telegramChatId);
-    await ctx.reply(`✅ <b>Title Updated!</b>\n\n"${updated}"`, { parse_mode: 'HTML' });
+    let buffer: Buffer;
+    if (imageUrl.startsWith('data:image')) {
+      const base64Data = imageUrl.split(',')[1];
+      buffer = Buffer.from(base64Data, 'base64');
+    } else {
+      const res = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+      buffer = Buffer.from(res.data);
+    }
+
+    await updateVideoThumbnail(connData.user.id, video.youtubeVideoId, buffer, 'image/jpeg');
+    aiCacheMap.delete(`thumb_${video.id}`);
+    await ctx.reply(`✅ <b>AI Thumbnail Successfully Applied to YouTube!</b>`, { parse_mode: 'HTML' });
   } catch (err: any) {
-    await ctx.reply(`❌ <b>Failed:</b> ${err.message}`, { parse_mode: 'HTML' });
+    await ctx.reply(`❌ <b>Failed to apply thumbnail:</b> ${err.message}`, { parse_mode: 'HTML' });
+  }
+});
+
+// 2. AI Generate Titles
+bot.action(/^ais_title_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const video = await prisma.video.findUnique({ where: { id: ctx.match[1] } });
+  if (!video) return;
+
+  await ctx.reply('🤖 <b>Analyzing video & generating clickworthy viral titles...</b>', { parse_mode: 'HTML' });
+
+  try {
+    const result = await generateAITitles(video.title, video.description || '', video.tags);
+    aiCacheMap.set(`titles_${video.id}`, result.titles);
+
+    const text =
+      `🤖 <b>AI Suggested Titles for:</b>\n"${video.title}"\n\n` +
+      `1. <b>${result.titles[0]}</b>\n` +
+      `2. <b>${result.titles[1]}</b>\n` +
+      `3. <b>${result.titles[2]}</b>\n\n` +
+      `💡 <i>${result.reasoning}</i>`;
+
+    await ctx.reply(text, {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('✅ Apply Title 1', `aia_t0_${video.id}`)],
+        [Markup.button.callback('✅ Apply Title 2', `aia_t1_${video.id}`)],
+        [Markup.button.callback('✅ Apply Title 3', `aia_t2_${video.id}`)],
+        [
+          Markup.button.callback('🔄 Regenerate', `ais_title_${video.id}`),
+          Markup.button.callback('❌ Discard', `vid_${video.id}`),
+        ],
+      ]),
+    });
+  } catch (err: any) {
+    await ctx.reply(`❌ <b>AI Title Error:</b> ${err.message}`, { parse_mode: 'HTML' });
+  }
+});
+
+// Apply AI Title
+bot.action(/^aia_t(\d+)_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const titleIndex = parseInt(ctx.match[1], 10);
+  const videoId = ctx.match[2];
+  const telegramChatId = ctx.from.id.toString();
+  const connData = await getConnectedChannel(telegramChatId);
+  const video = await prisma.video.findUnique({ where: { id: videoId } });
+  const titles = aiCacheMap.get(`titles_${videoId}`);
+
+  if (!connData || !video || !titles || !titles[titleIndex]) {
+    return ctx.reply('❌ <b>Session expired. Please click Generate New Title again.</b>', { parse_mode: 'HTML' });
+  }
+
+  const selectedTitle = titles[titleIndex];
+  try {
+    const updated = await updateVideoTitle(connData.user.id, video.youtubeVideoId, selectedTitle);
+    aiCacheMap.delete(`titles_${videoId}`);
+    await ctx.reply(`✅ <b>YouTube Title Updated!</b>\n\n"${updated}"`, { parse_mode: 'HTML' });
+  } catch (err: any) {
+    await ctx.reply(`❌ <b>Failed to update title:</b> ${err.message}`, { parse_mode: 'HTML' });
+  }
+});
+
+// 3. AI Generate Description
+bot.action(/^ais_desc_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const video = await prisma.video.findUnique({ where: { id: ctx.match[1] } });
+  if (!video) return;
+
+  await ctx.reply('🤖 <b>Generating SEO-optimized description...</b>', { parse_mode: 'HTML' });
+
+  try {
+    const generatedDesc = await generateAIDescription(video.title, video.description || '');
+    aiCacheMap.set(`desc_${video.id}`, generatedDesc);
+
+    const text =
+      `📝 <b>AI Generated Description for:</b>\n"${video.title}"\n\n` +
+      `${generatedDesc}`;
+
+    await ctx.reply(text, {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([
+        [
+          Markup.button.callback('✅ Apply', `aia_desc_${video.id}`),
+          Markup.button.callback('🔄 Regenerate', `ais_desc_${video.id}`),
+          Markup.button.callback('❌ Discard', `vid_${video.id}`),
+        ],
+      ]),
+    });
+  } catch (err: any) {
+    await ctx.reply(`❌ <b>AI Description Error:</b> ${err.message}`, { parse_mode: 'HTML' });
+  }
+});
+
+// Apply AI Description
+bot.action(/^aia_desc_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const videoId = ctx.match[1];
+  const telegramChatId = ctx.from.id.toString();
+  const connData = await getConnectedChannel(telegramChatId);
+  const video = await prisma.video.findUnique({ where: { id: videoId } });
+  const desc = aiCacheMap.get(`desc_${videoId}`);
+
+  if (!connData || !video || !desc) {
+    return ctx.reply('❌ <b>Session expired. Please click Generate New Description again.</b>', { parse_mode: 'HTML' });
+  }
+
+  try {
+    await updateVideoDescription(connData.user.id, video.youtubeVideoId, desc);
+    aiCacheMap.delete(`desc_${videoId}`);
+    await ctx.reply(`✅ <b>YouTube Description Updated!</b>`, { parse_mode: 'HTML' });
+  } catch (err: any) {
+    await ctx.reply(`❌ <b>Failed to update description:</b> ${err.message}`, { parse_mode: 'HTML' });
+  }
+});
+
+// 4. AI Generate Keywords / Tags
+bot.action(/^ais_tags_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const video = await prisma.video.findUnique({ where: { id: ctx.match[1] } });
+  if (!video) return;
+
+  await ctx.reply('🤖 <b>Generating trending SEO keywords & tags...</b>', { parse_mode: 'HTML' });
+
+  try {
+    const tags = await generateAITags(video.title, video.tags);
+    aiCacheMap.set(`tags_${video.id}`, tags);
+
+    const text =
+      `🏷️ <b>AI Generated Tags for:</b>\n"${video.title}"\n\n` +
+      `<code>${tags.join(', ')}</code>`;
+
+    await ctx.reply(text, {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([
+        [
+          Markup.button.callback('✅ Apply', `aia_tags_${video.id}`),
+          Markup.button.callback('🔄 Regenerate', `ais_tags_${video.id}`),
+          Markup.button.callback('❌ Discard', `vid_${video.id}`),
+        ],
+      ]),
+    });
+  } catch (err: any) {
+    await ctx.reply(`❌ <b>AI Tags Error:</b> ${err.message}`, { parse_mode: 'HTML' });
+  }
+});
+
+// Apply AI Tags
+bot.action(/^aia_tags_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const videoId = ctx.match[1];
+  const telegramChatId = ctx.from.id.toString();
+  const connData = await getConnectedChannel(telegramChatId);
+  const video = await prisma.video.findUnique({ where: { id: videoId } });
+  const tags = aiCacheMap.get(`tags_${videoId}`);
+
+  if (!connData || !video || !tags) {
+    return ctx.reply('❌ <b>Session expired. Please click Generate New Tags again.</b>', { parse_mode: 'HTML' });
+  }
+
+  try {
+    const updated = await updateVideoTags(connData.user.id, video.youtubeVideoId, tags);
+    aiCacheMap.delete(`tags_${videoId}`);
+    await ctx.reply(`✅ <b>YouTube Tags Updated!</b>\n\n${updated.join(', ')}`, { parse_mode: 'HTML' });
+  } catch (err: any) {
+    await ctx.reply(`❌ <b>Failed to update tags:</b> ${err.message}`, { parse_mode: 'HTML' });
+  }
+});
+
+// 5. AI Generate Pinned Comment
+bot.action(/^ais_pincmt_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const video = await prisma.video.findUnique({ where: { id: ctx.match[1] } });
+  if (!video) return;
+
+  await ctx.reply('🤖 <b>Generating high-engagement Pinned Comment...</b>', { parse_mode: 'HTML' });
+
+  try {
+    const commentText = await generateAIPinnedComment(video.title, video.description || '');
+
+    const text =
+      `📌 <b>AI Suggested Pinned Comment for:</b>\n"${video.title}"\n\n` +
+      `<code>${commentText}</code>\n\n` +
+      `<i>Copy the text above and pin it under your video on YouTube!</i>`;
+
+    await ctx.reply(text, {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([
+        [
+          Markup.button.callback('🔄 Regenerate', `ais_pincmt_${video.id}`),
+          Markup.button.callback('↩️ Back to Video', `vid_${video.id}`),
+        ],
+      ]),
+    });
+  } catch (err: any) {
+    await ctx.reply(`❌ <b>AI Pinned Comment Error:</b> ${err.message}`, { parse_mode: 'HTML' });
   }
 });
 

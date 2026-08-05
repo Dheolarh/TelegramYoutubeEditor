@@ -1,6 +1,6 @@
 import { prisma } from '../config/db';
 import { bot } from './telegramBot';
-import { generateMetadataSuggestions } from './aiService';
+import { generateAITitles } from './aiService';
 
 /**
  * Background Cron Job: Scans connected channel videos periodically (every 6 hours)
@@ -23,18 +23,17 @@ export const runTrendAlertScanner = async (): Promise<void> => {
       if (!olderVideo) continue;
 
       try {
-        const suggestions = await generateMetadataSuggestions(
+        const result = await generateAITitles(
           olderVideo.title,
           olderVideo.description || '',
-          olderVideo.tags,
-          'Technology'
+          olderVideo.tags
         );
 
-        if (suggestions.titles.length > 0) {
+        if (result.titles.length > 0) {
           const alertMsg =
             `🔥 *Proactive Trend Alert!*\n\n` +
             `Topics related to your video "*${olderVideo.title}*" are currently trending!\n\n` +
-            `💡 *AI Recommended Title:* "${suggestions.titles[0]}"\n\n` +
+            `💡 *AI Recommended Title:* "${result.titles[0]}"\n\n` +
             `Use /videos to review and update your video metadata!`;
 
           await bot.telegram.sendMessage(ownerChatId, alertMsg, { parse_mode: 'Markdown' });
