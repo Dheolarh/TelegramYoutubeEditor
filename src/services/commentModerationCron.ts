@@ -1,21 +1,22 @@
+import filter from 'leo-profanity';
 import { prisma } from '../config/db';
 import { bot } from './telegramBot';
 import { fetchVideoComments, deleteYouTubeComment } from './youtubeEdit';
 
+// Load default English profanity dictionary from npm library
+filter.loadDictionary('en');
+
 /**
- * Intelligent Profanity, Hate Speech, & Toxic Spam Filter
+ * Multi-layer Profanity, Spam & Toxicity Detector
+ * Uses npm 'leo-profanity' library + link/spam regex.
  */
 export const isProfaneOrToxic = (text: string): boolean => {
-  const lower = text.toLowerCase();
+  // 1. Check npm library dictionary (catches profanity, bad words, and common variations)
+  if (filter.check(text)) return true;
 
-  // Common toxic slurs, profanity, and link spam regex patterns
-  const profanityPatterns = [
-    /\b(fuck|shit|bitch|bastard|asshole|cunt|dick|pussy|nigger|nigga|whore|slut)\b/i,
-    /\b(free subscribers|sub4sub|click here|crypto giveaway|whatsapp me|telegram me)\b/i,
-    /http[s]?:\/\/[^\s]+/i, // Unauthorized link spam
-  ];
-
-  return profanityPatterns.some((pattern) => pattern.test(lower));
+  // 2. Check link spam & sub4sub promotion
+  const spamPattern = /\b(free subscribers|sub4sub|crypto giveaway|whatsapp me|telegram me)\b|http[s]?:\/\/[^\s]+/i;
+  return spamPattern.test(text);
 };
 
 /**
