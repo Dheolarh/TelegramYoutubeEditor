@@ -71,7 +71,7 @@ const getConnectedChannel = async (telegramChatId: string) => {
 };
 
 // ── /start ────────────────────────────────────────────────────────────────────
-bot.command('start', async (ctx) => {
+const handleStartCommand = async (ctx: any) => {
   const telegramChatId = ctx.from.id.toString();
   const firstName = ctx.from.first_name || 'Creator';
 
@@ -92,7 +92,11 @@ bot.command('start', async (ctx) => {
       parse_mode: 'HTML',
       ...Markup.inlineKeyboard([
         [Markup.button.callback('📹 Browse Recent Videos', 'cmd_videos')],
-        [Markup.button.url('🔗 Re-Connect YouTube Channel', connectUrl)],
+        [
+          Markup.button.url('🔗 Re-Connect', connectUrl),
+          Markup.button.callback('🔌 Disconnect', 'cmd_disconnect'),
+        ],
+        [Markup.button.callback('❓ Help & Commands', 'cmd_help')],
       ]),
     });
   } else {
@@ -104,23 +108,66 @@ bot.command('start', async (ctx) => {
       parse_mode: 'HTML',
       ...Markup.inlineKeyboard([
         [Markup.button.url('🔗 Connect YouTube Channel', connectUrl)],
+        [Markup.button.callback('❓ Help & Commands', 'cmd_help')],
       ]),
     });
   }
-});
+};
 
+bot.command('start', handleStartCommand);
+bot.action('cmd_start', async (ctx) => { await ctx.answerCbQuery(); await handleStartCommand(ctx); });
+
+// ── Disconnect Action ─────────────────────────────────────────────────────────
+bot.action('cmd_disconnect', async (ctx) => {
+  await ctx.answerCbQuery();
+  const telegramChatId = ctx.from.id.toString();
+  const connData = await getConnectedChannel(telegramChatId);
+
+  if (!connData) {
+    return ctx.reply('⚠️ <b>No YouTube channel connected to disconnect.</b>', { parse_mode: 'HTML' });
+  }
+
+  try {
+    await prisma.channel.deleteMany({ where: { userId: connData.user.id } });
+    await prisma.youTubeAccount.deleteMany({ where: { userId: connData.user.id } });
+
+    await ctx.reply(
+      `🔌 <b>YouTube Channel Disconnected!</b>\n\n` +
+        `Your channel <b>${connData.channel.title}</b> has been unlinked from this bot.\n\n` +
+        `Use /start anytime to connect a new YouTube channel!`,
+      { parse_mode: 'HTML' }
+    );
+  } catch (err: any) {
+    await ctx.reply(`❌ <b>Disconnect Error:</b> ${err.message}`, { parse_mode: 'HTML' });
+  }
+});
 
 // ── /help ─────────────────────────────────────────────────────────────────────
-bot.command('help', async (ctx) => {
-  await ctx.reply(
-    `🤖 <b>Personal YouTube Bot Help</b>\n\n` +
-      `• /start - Welcome &amp; Channel Status\n` +
-      `• /videos - Browse your recent uploaded videos\n` +
-      `• /search &lt;keyword&gt; - Search your videos by title\n` +
-      `• /help - Show available commands`,
-    { parse_mode: 'HTML' }
-  );
-});
+const handleHelpCommand = async (ctx: any) => {
+  const text =
+    `🤖 <b>Personal YouTube Bot Help &amp; Commands</b>\n\n` +
+    `• <b>/start</b> - Welcome &amp; Channel Connection Status\n` +
+    `• <b>/videos</b> - Browse &amp; manage your recent uploads\n` +
+    `• <b>/search &lt;keyword&gt;</b> - Search your videos by title\n` +
+    `• <b>/help</b> - Show this help menu\n\n` +
+    `<b>Available Video Features:</b>\n` +
+    `✏️ Edit Titles, Descriptions &amp; Tags\n` +
+    `🖼️ Upload Thumbnails by sending photos\n` +
+    `💬 View &amp; Reply to top comments\n` +
+    `🤖 AI-Powered Metadata Optimization (Gemini / DeepSeek)`;
+
+  await ctx.reply(text, {
+    parse_mode: 'HTML',
+    ...Markup.inlineKeyboard([
+      [Markup.button.callback('📹 Browse Videos', 'cmd_videos')],
+      [Markup.button.callback('🏠 Back to Start', 'cmd_start')],
+    ]),
+  });
+};
+
+bot.command('help', handleHelpCommand);
+bot.action('cmd_help', async (ctx) => { await ctx.answerCbQuery(); await handleHelpCommand(ctx); });
+
 
 // ── /videos ───────────────────────────────────────────────────────────────────
 const handleVideosCommand = async (ctx: any) => {
@@ -404,7 +451,7 @@ export const initTelegramBot = async (retries = 5): Promise<void> => {
   try {
     await bot.telegram.deleteWebhook({ drop_pending_updates: false });
   } catch (err: any) {
-    console.warn('ℹ️ deleteWebhook info:', err.message);
+    console.warn('ℹdeleteWebhook info:', err.message);
   }
 
   for (let attempt = 1; attempt <= retries; attempt++) {
