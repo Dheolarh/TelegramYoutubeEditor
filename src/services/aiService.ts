@@ -133,7 +133,7 @@ export const generateAITitles = async (
   const yr = new Date().getFullYear();
 
   const prompt = `You are a YouTube SEO and viral title expert.
-CRITICAL SYSTEM CONTEXT: The current calendar year is ${yr}. ALWAYS use ${yr} (and NEVER past years like 2025 or 2024) for any year references!
+CRITICAL SYSTEM CONTEXT: The current calendar year is dynamically evaluated as ${yr}. Always use the active current year (which is ${yr}) and NEVER use past years for any year references!
 
 Analyze the video details and current live search trends specifically for this video topic below to generate 3 clickworthy, high-CTR titles.
 
@@ -232,6 +232,14 @@ Respond with ONLY the comment text.`;
   return await runTextAIWithFallback(prompt);
 };
 
+const withTimeout = <T>(promise: Promise<T>, ms: number, fallbackMessage: string): Promise<T> => {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`Timeout (${ms}ms): ${fallbackMessage}`)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+};
+
 /**
  * 5. Generate AI Thumbnail (Fallback: OpenAI DALL-E 3 -> Imagen 3 -> Pollinations)
  * Analyzes video title & existing thumbnail context to generate an updated visual.
@@ -240,7 +248,7 @@ export const generateAIThumbnail = async (
   title: string,
   currentThumbnailUrl?: string
 ): Promise<string> => {
-  // Step 1: Analyze thumbnail concept using Text AI
+  // Step 1: Analyze thumbnail concept using Text AI (with 6s timeout)
   const promptAnalysis = `You are a professional YouTube Thumbnail Creative Director.
 Create an image generation prompt for a high-CTR YouTube thumbnail for the video titled "${title}".
 
@@ -250,7 +258,7 @@ Respond with ONLY a 1-paragraph visual prompt for AI image generation.`;
 
   let visualPrompt = '';
   try {
-    visualPrompt = await runTextAIWithFallback(promptAnalysis);
+    visualPrompt = await withTimeout(runTextAIWithFallback(promptAnalysis), 6000, 'Visual prompt timeout');
   } catch (err) {
     visualPrompt = `Vibrant 4k high-CTR YouTube thumbnail visual for video about ${title}`;
   }
@@ -263,13 +271,17 @@ Respond with ONLY a 1-paragraph visual prompt for AI image generation.`;
   if (process.env.OPENAI_API_KEY) {
     try {
       console.log('🎨 Generating thumbnail with OpenAI DALL-E 3...');
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const result = await openai.images.generate({
-        model: 'dalle-3',
-        prompt: enhancedPrompt,
-        n: 1,
-        size: '1024x1024',
-      });
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 8000 });
+      const result = await withTimeout(
+        openai.images.generate({
+          model: 'dalle-3',
+          prompt: enhancedPrompt,
+          n: 1,
+          size: '1024x1024',
+        }),
+        8000,
+        'DALL-E 3 timeout'
+      );
       const imageUrl = result.data?.[0]?.url;
       if (imageUrl) return imageUrl;
     } catch (err: any) {
@@ -290,7 +302,7 @@ Respond with ONLY a 1-paragraph visual prompt for AI image generation.`;
             aspectRatio: '16:9',
           },
         },
-        { headers: { 'Content-Type': 'application/json' } }
+        { headers: { 'Content-Type': 'application/json' }, timeout: 8000 }
       );
       const base64Image = response.data?.predictions?.[0]?.bytesBase64Encoded;
       if (base64Image) {
@@ -301,10 +313,11 @@ Respond with ONLY a 1-paragraph visual prompt for AI image generation.`;
     }
   }
 
-  // Attempt C: Free Pollinations AI Image Endpoint
+  // Attempt C: Fast Pollinations AI Image Endpoint
   console.log('🎨 Generating thumbnail with Pollinations AI...');
-  const encoded = encodeURIComponent(enhancedPrompt);
-  return `https://image.pollinations.ai/prompt/${encoded}?width=1280&height=720&nologo=true`;
+  const encoded = encodeURIComponent(enhancedPrompt.slice(0, 150));
+  const seed = Math.floor(Math.random() * 10000);
+  return `https://image.pollinations.ai/prompt/${encoded}?width=1280&height=720&nologo=true&seed=${seed}`;
 };
 
 export interface AIContentSuggestion {
@@ -325,7 +338,7 @@ export const generateAIContentSuggestion = async (
 ): Promise<AIContentSuggestion> => {
   const yr = new Date().getFullYear();
   const prompt = `You are a viral YouTube Creator Strategist.
-CRITICAL SYSTEM CONTEXT: The current calendar year is ${yr}. ALWAYS use ${yr} (and NEVER past years like 2025 or 2024) for any year references!
+CRITICAL SYSTEM CONTEXT: The current calendar year is dynamically evaluated as ${yr}. Always use the active current year (which is ${yr}) and NEVER use past years for any year references!
 
 A video titled "${trendTitle}" is currently trending on YouTube in the "${niche}" niche.
 Real YouTube search autocomplete keywords typed by viewers: ${JSON.stringify(trendKeywords)}

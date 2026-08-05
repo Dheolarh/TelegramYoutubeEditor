@@ -554,7 +554,13 @@ bot.action(/^ais_thumb_(.+)$/, async (ctx) => {
       const buffer = Buffer.from(base64Data, 'base64');
       await ctx.replyWithPhoto({ source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
     } else {
-      await ctx.replyWithPhoto(imageUrl, { caption, parse_mode: 'HTML', ...keyboard });
+      try {
+        const res = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 6000 });
+        const buffer = Buffer.from(res.data);
+        await ctx.replyWithPhoto({ source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
+      } catch (imgErr) {
+        await ctx.replyWithPhoto(imageUrl, { caption, parse_mode: 'HTML', ...keyboard });
+      }
     }
   } catch (err: any) {
     await ctx.reply(`❌ <b>AI Thumbnail Error:</b> ${err.message}`, { parse_mode: 'HTML' });
