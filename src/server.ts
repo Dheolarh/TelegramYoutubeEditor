@@ -24,13 +24,15 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Telegram Webhook Handler
+app.use(bot.webhookCallback('/telegram/webhook'));
+
 // Routes
 app.use('/auth', authRouter);
 app.get('/connect', (req, res) => {
   const uid = (req.query.uid as string) || (req.query.state as string) || '';
   res.redirect(`/auth/connect?uid=${uid}`);
 });
-
 
 // Start Server & Launch Telegram Bot
 app.listen(PORT, async () => {
@@ -42,8 +44,8 @@ app.listen(PORT, async () => {
   console.log(`🚀 Server running on ${publicUrl}`);
   console.log(`🔗 Google OAuth Redirect URL: ${publicUrl}/auth/google/callback`);
 
-  // Launch Telegram Bot Long Polling listener
-  await initTelegramBot();
+  // Launch Telegram Bot (Webhook on Production HTTPS, Polling on Local HTTP)
+  await initTelegramBot(publicUrl);
 
   // Schedule Proactive Trend Alert Scanner (Runs every 6 hours)
   const SIX_HOURS = 6 * 60 * 60 * 1000;

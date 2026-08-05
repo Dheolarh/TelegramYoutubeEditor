@@ -440,29 +440,40 @@ bot.on('text', async (ctx: any) => {
 });
 
 // ── Bot Launch ────────────────────────────────────────────────────────────────
-export const initTelegramBot = async (retries = 5): Promise<void> => {
+export const initTelegramBot = async (publicUrl?: string, retries = 5): Promise<void> => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token || token === 'your_telegram_bot_token_here') {
     console.log('ℹ️ Telegram Bot skipped (TELEGRAM_BOT_TOKEN not set).');
     return;
   }
 
-  // Clear any existing webhooks to prevent 409 Conflict
+  // If running in production with HTTPS (e.g. Render), register Webhook
+  if (publicUrl && publicUrl.startsWith('https://')) {
+    const webhookUrl = `${publicUrl}/telegram/webhook`;
+    try {
+      await bot.telegram.setWebhook(webhookUrl);
+      console.log(`🤖 Telegram Bot Webhook registered successfully: ${webhookUrl}`);
+      return;
+    } catch (err: any) {
+      console.error(`❌ Could not set Telegram Webhook: ${err.message}`);
+    }
+  }
+
+  // Fallback for local development: Long Polling
   try {
     await bot.telegram.deleteWebhook({ drop_pending_updates: false });
   } catch (err: any) {
-    console.warn('ℹdeleteWebhook info:', err.message);
+    console.warn('ℹ️ deleteWebhook info:', err.message);
   }
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       await bot.launch();
-      console.log('🤖 Telegram Bot launched successfully!');
+      console.log('🤖 Telegram Bot launched with long polling!');
       return;
     } catch (err: any) {
       console.warn(`⚠️ Bot launch attempt ${attempt}/${retries}: ${err.message}`);
       if (attempt < retries) {
-        // Wait 5 seconds for previous Render container instance to shutdown
         await new Promise((r) => setTimeout(r, 5000));
       } else {
         console.error('❌ Could not connect to Telegram API after retries.');
