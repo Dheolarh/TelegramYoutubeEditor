@@ -87,13 +87,34 @@ const runTextAIWithFallback = async (prompt: string): Promise<string> => {
 };
 
 /**
- * Fetch real-time Google Trends daily search queries.
+ * Fetch real-time live trends specific to the video's topic/title.
  */
-export const fetchLiveTrends = async (): Promise<string[]> => {
+export const fetchLiveTrends = async (topicQuery?: string): Promise<string[]> => {
+  if (topicQuery) {
+    try {
+      // Clean query to 2-3 core words for optimal search trend matching
+      const cleanTopic = topicQuery.replace(/[^\w\s]/gi, '').split(' ').slice(0, 3).join(' ');
+      const res = await axios.get(
+        `https://news.google.com/rss/search?q=${encodeURIComponent(cleanTopic)}&hl=en-US&gl=US&ceid=US:en`,
+        { timeout: 3500 }
+      );
+      const matches = [...res.data.matchAll(/<title>(.*?)<\/title>/g)]
+        .map(m => m[1].replace(/ - .*/, '').trim())
+        .filter(t => t && !t.includes('Google News'));
+
+      if (matches.length > 0) {
+        console.log(`📡 Fetched ${matches.length} live topic trends for "${cleanTopic}"`);
+        return matches.slice(0, 8);
+      }
+    } catch (e) {
+      // Fallback to general daily search trends
+    }
+  }
+
   try {
     const res = await axios.get('https://trends.google.com/trends/trendingsearches/daily/rss?geo=US', { timeout: 3000 });
     const matches = [...res.data.matchAll(/<title>(.*?)<\/title>/g)].map(m => m[1]).filter(t => t && t !== 'Daily Search Trends');
-    return matches.slice(0, 10);
+    return matches.slice(0, 8);
   } catch (e) {
     return ['latest updates 2025', 'how to fixed', 'best guide', 'new patch release', 'trending topic'];
   }
@@ -107,17 +128,17 @@ export const generateAITitles = async (
   description: string,
   tags: string[]
 ): Promise<AITitleResult> => {
-  const liveTrends = await fetchLiveTrends();
+  const liveTrends = await fetchLiveTrends(currentTitle);
 
   const prompt = `You are a YouTube SEO and viral title expert.
-Analyze the video details and current live search trends below to generate 3 clickworthy, high-CTR titles.
+Analyze the video details and current live search trends specifically for this video topic below to generate 3 clickworthy, high-CTR titles.
 
 Current Title: "${currentTitle}"
 Description snippet: "${description.slice(0, 300)}"
 Tags: ${JSON.stringify(tags)}
-Live Google Search Trends Right Now: ${JSON.stringify(liveTrends)}
+Live Search Trends Specific To This Topic Right Now: ${JSON.stringify(liveTrends)}
 
-Incorporate trending viral angles (e.g. 2025 updates, fixes, secrets, or trending search intent) if relevant to boost clickability.
+Incorporate these topic-specific trending viral angles (e.g. 2025 updates, fixes, secrets, or active user search queries) if relevant to boost clickability.
 
 Respond STRICTLY in JSON format:
 {
