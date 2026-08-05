@@ -69,6 +69,8 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
       } catch (tgErr: any) {
         console.warn(`⚠️ Could not send Live Mode suggestion to Telegram:`, tgErr.message);
       }
+
+      await new Promise((r) => setTimeout(r, 250)); // Rate limit buffer
     }
   } catch (err: any) {
     console.error('❌ Error in Live Mode scanner:', err.message);

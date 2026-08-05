@@ -42,6 +42,8 @@ export const runTrendAlertScanner = async (): Promise<void> => {
       } catch (err: any) {
         console.warn(`⚠️ Trend scan warning for video ${olderVideo.title}:`, err.message);
       }
+
+      await new Promise((r) => setTimeout(r, 250)); // Rate limit buffer
     }
   } catch (error: any) {
     console.error('❌ Error in trend scanner:', error.message);
