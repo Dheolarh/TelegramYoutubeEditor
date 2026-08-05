@@ -314,28 +314,36 @@ bot.action(/^act_comments_(.+)$/, async (ctx) => {
   await ctx.reply('💬 <b>Fetching top comments...</b>', { parse_mode: 'HTML' });
   try {
     const comments = await fetchVideoComments(connData.user.id, video.youtubeVideoId, 5);
-    if (comments.length === 0) return ctx.reply('💬 <b>No comments found.</b>', { parse_mode: 'HTML' });
+    if (comments.length === 0) return ctx.reply('💬 <b>No comments found on this video.</b>', { parse_mode: 'HTML' });
 
     for (const c of comments) {
+      // Callback data must be <= 64 bytes for Telegram API (rc_<commentId>)
+      const replyCallback = `rc_${c.commentId}`;
+      const authorShort = c.authorName.length > 20 ? `${c.authorName.slice(0, 18)}..` : c.authorName;
+
       await ctx.reply(
         `👤 <b>${c.authorName}</b>:\n"${c.textDisplay}"`,
-        { parse_mode: 'HTML', ...Markup.inlineKeyboard([[Markup.button.callback(`↩️ Reply to ${c.authorName}`, `reply_cmt_${c.commentId}_${video.id}`)]]) }
+        {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([[Markup.button.callback(`↩️ Reply to ${authorShort}`, replyCallback)]]),
+        }
       );
     }
   } catch (err: any) {
-    await ctx.reply(`❌ <b>Failed:</b> ${err.message}`, { parse_mode: 'HTML' });
+    await ctx.reply(`❌ <b>Failed to fetch comments:</b> ${err.message}`, { parse_mode: 'HTML' });
   }
 });
 
-bot.action(/^reply_cmt_(.+)_(.+)$/, async (ctx) => {
+bot.action(/^rc_(.+)$/, async (ctx) => {
   await ctx.answerCbQuery();
+  const commentId = ctx.match[1];
   userStateMap.set(ctx.from.id.toString(), {
     action: 'AWAITING_COMMENT_REPLY',
-    videoId: ctx.match[2],
+    videoId: '',
     youtubeVideoId: '',
-    extraData: { commentId: ctx.match[1] },
+    extraData: { commentId },
   });
-  await ctx.reply('✍️ <b>Send your reply:</b>', { parse_mode: 'HTML' });
+  await ctx.reply('✍️ <b>Type your reply to this comment:</b>', { parse_mode: 'HTML' });
 });
 
 // ── AI Optimize ───────────────────────────────────────────────────────────────
