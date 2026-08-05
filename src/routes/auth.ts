@@ -102,31 +102,132 @@ authRouter.get('/google/callback', async (req: Request, res: Response) => {
       }
     }
 
-    // 7. Render Browser Success Page
-    return res.send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>YouTube Connected</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0f172a; color: #f8fafc; text-align: center; }
-          .card { background: #1e293b; padding: 2.5rem; border-radius: 1rem; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); max-width: 400px; }
-          h1 { color: #22c55e; margin-bottom: 0.5rem; }
-          p { color: #94a3b8; line-height: 1.5; }
-          .badge { background: #334155; padding: 0.5rem 1rem; border-radius: 0.5rem; display: inline-block; margin-top: 1rem; font-weight: bold; color: #38bdf8; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <h1>✅ Channel Connected!</h1>
-          <p>Your YouTube account <strong>${channelData.title}</strong> is now connected to your personal Telegram bot.</p>
-          <div class="badge">You can close this tab and return to Telegram</div>
-        </div>
-      </body>
-      </html>
-    `);
+    return res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Connected</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      text-align: center;
+      padding: 2rem;
+      max-width: 360px;
+      width: 100%;
+    }
+
+    .yt-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 2rem;
+    }
+
+    .checkmark {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #FF0000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes pop {
+      0% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .checkmark svg {
+      width: 24px;
+      height: 24px;
+      stroke: #fff;
+      stroke-width: 2.5;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 40;
+      stroke-dashoffset: 0;
+      animation: draw 0.5s ease 0.3s both;
+    }
+
+    @keyframes draw {
+      0% { stroke-dashoffset: 40; }
+      100% { stroke-dashoffset: 0; }
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+      color: #fff;
+    }
+
+    .channel-name {
+      color: #FF0000;
+      font-weight: 500;
+    }
+
+    p {
+      font-size: 0.85rem;
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+
+    .divider {
+      width: 32px;
+      height: 1px;
+      background: #1f1f1f;
+      margin: 1.5rem auto;
+    }
+
+    .hint {
+      font-size: 0.75rem;
+      color: #333;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="checkmark">
+      <svg viewBox="0 0 24 24">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+
+    <h1>Channel Connected</h1>
+
+    <div class="divider"></div>
+
+    <p>
+      <span class="channel-name">${channelData.title}</span><br>
+      is now linked to your Telegram bot.
+    </p>
+
+    <p class="hint">You can close this tab</p>
+  </div>
+</body>
+</html>`);
+
   } catch (error: any) {
     console.error('❌ OAuth Callback Error:', error.response?.data || error.message);
     return res.status(500).send(`
