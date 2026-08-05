@@ -279,7 +279,7 @@ Respond with ONLY a 1-paragraph visual prompt for AI image generation.`;
           n: 1,
           size: '1024x1024',
         }),
-        25000,
+        60000,
         'DALL-E 3 timeout'
       );
       const imageUrl = result.data?.[0]?.url;
