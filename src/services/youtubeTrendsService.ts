@@ -22,7 +22,8 @@ export const fetchYouTubeAutocompleteKeywords = async (query: string): Promise<s
     return keywords.slice(0, 10);
   } catch (err: any) {
     console.warn('⚠️ YouTube Autocomplete fetch error:', err.message);
-    return [`${query} 2025`, `${query} tutorial`, `${query} review`, `${query} gameplay`, `${query} update` ];
+    const yr = new Date().getFullYear();
+    return [`${query} ${yr}`, `${query} tutorial`, `${query} review`, `${query} gameplay`, `${query} update` ];
   }
 };
 
@@ -69,10 +70,11 @@ export const fetchYouTubeNicheTrends = async (
   } catch (err: any) {
     console.warn('⚠️ YouTube Niche Search error:', err.message);
     // Fallback using autocomplete keywords
+    const yr = new Date().getFullYear();
     const fallbackKeywords = await fetchYouTubeAutocompleteKeywords(nicheQuery);
     return [
       {
-        title: `${nicheQuery} Latest 2025 Trends & Secrets`,
+        title: `${nicheQuery} Latest ${yr} Trends & Secrets`,
         channelTitle: 'YouTube Trends',
         publishedAt: new Date().toISOString(),
         snippet: `Viral topic trending in ${nicheQuery}`,

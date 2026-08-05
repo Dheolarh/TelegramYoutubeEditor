@@ -116,7 +116,8 @@ export const fetchLiveTrends = async (topicQuery?: string): Promise<string[]> =>
     const matches = [...res.data.matchAll(/<title>(.*?)<\/title>/g)].map(m => m[1]).filter(t => t && t !== 'Daily Search Trends');
     return matches.slice(0, 8);
   } catch (e) {
-    return ['latest updates 2025', 'how to fixed', 'best guide', 'new patch release', 'trending topic'];
+    const yr = new Date().getFullYear();
+    return [`latest updates ${yr}`, 'how to fixed', 'best guide', 'new patch release', 'trending topic'];
   }
 };
 
@@ -129,8 +130,11 @@ export const generateAITitles = async (
   tags: string[]
 ): Promise<AITitleResult> => {
   const liveTrends = await fetchLiveTrends(currentTitle);
+  const yr = new Date().getFullYear();
 
   const prompt = `You are a YouTube SEO and viral title expert.
+CRITICAL SYSTEM CONTEXT: The current calendar year is ${yr}. ALWAYS use ${yr} (and NEVER past years like 2025 or 2024) for any year references!
+
 Analyze the video details and current live search trends specifically for this video topic below to generate 3 clickworthy, high-CTR titles.
 
 Current Title: "${currentTitle}"
@@ -138,7 +142,7 @@ Description snippet: "${description.slice(0, 300)}"
 Tags: ${JSON.stringify(tags)}
 Live Search Trends Specific To This Topic Right Now: ${JSON.stringify(liveTrends)}
 
-Incorporate these topic-specific trending viral angles (e.g. 2025 updates, fixes, secrets, or active user search queries) if relevant to boost clickability.
+Incorporate these topic-specific trending viral angles (e.g. ${yr} updates, fixes, secrets, or active user search queries) if relevant to boost clickability.
 
 Respond STRICTLY in JSON format:
 {
@@ -155,7 +159,7 @@ Respond STRICTLY in JSON format:
     };
   } catch (err) {
     return {
-      titles: [`🔥 ${currentTitle} (2025 UPDATE)`, `HOW TO: ${currentTitle}`, `BEST GUIDE: ${currentTitle}`],
+      titles: [`🔥 ${currentTitle} (${yr} UPDATE)`, `HOW TO: ${currentTitle}`, `BEST GUIDE: ${currentTitle}`],
       reasoning: 'Generated trend-optimized titles.',
     };
   }
@@ -319,7 +323,10 @@ export const generateAIContentSuggestion = async (
   trendKeywords: string[],
   niche: string = 'Technology'
 ): Promise<AIContentSuggestion> => {
+  const yr = new Date().getFullYear();
   const prompt = `You are a viral YouTube Creator Strategist.
+CRITICAL SYSTEM CONTEXT: The current calendar year is ${yr}. ALWAYS use ${yr} (and NEVER past years like 2025 or 2024) for any year references!
+
 A video titled "${trendTitle}" is currently trending on YouTube in the "${niche}" niche.
 Real YouTube search autocomplete keywords typed by viewers: ${JSON.stringify(trendKeywords)}
 
