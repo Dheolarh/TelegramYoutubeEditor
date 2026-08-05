@@ -21,6 +21,7 @@ import {
 } from './aiService';
 import { getGoogleAuthUrl } from './youtubeAuth';
 import { runLiveModeScanner, suggestionCacheMap } from './liveModeCron';
+import { fetchChannelAnalytics } from './youtubeAnalytics';
 
 
 dotenv.config();
@@ -155,6 +156,7 @@ const handleHelpCommand = async (ctx: any) => {
     `🤖 <b>Personal YouTube Bot Help &amp; Commands</b>\n\n` +
     `• <b>/start</b> - Welcome &amp; Channel Connection Status\n` +
     `• <b>/videos</b> - Browse &amp; manage your recent uploads\n` +
+    `• <b>/analytics</b> - Real-time channel analytics, CTR &amp; demographics\n` +
     `• <b>/search &lt;keyword&gt;</b> - Search your videos by title\n` +
     `• <b>/livemode</b> - Real-time YouTube trend &amp; post suggestion engine\n` +
     `• <b>/help</b> - Show this help menu\n\n` +
@@ -163,19 +165,79 @@ const handleHelpCommand = async (ctx: any) => {
     `🖼️ Upload Thumbnails by sending photos\n` +
     `💬 View &amp; Reply to top comments\n` +
     `🤖 AI-Powered Metadata Optimization (Gemini / DeepSeek)\n` +
+    `📊 YouTube Analytics API v2 Dashboard\n` +
     `⚡ Live Mode Automated Trend Scanner`;
 
   await ctx.reply(text, {
     parse_mode: 'HTML',
     ...Markup.inlineKeyboard([
-      [Markup.button.callback('📹 Browse Videos', 'cmd_videos'), Markup.button.callback('⚡ Live Mode', 'cmd_livemode')],
-      [Markup.button.callback('🏠 Back to Start', 'cmd_start')],
+      [Markup.button.callback('📹 Browse Videos', 'cmd_videos'), Markup.button.callback('📊 Analytics', 'cmd_analytics')],
+      [Markup.button.callback('⚡ Live Mode', 'cmd_livemode'), Markup.button.callback('🏠 Back to Start', 'cmd_start')],
     ]),
   });
 };
 
 bot.command('help', handleHelpCommand);
 bot.action('cmd_help', async (ctx) => { await ctx.answerCbQuery(); await handleHelpCommand(ctx); });
+
+// ── /analytics (YouTube Analytics API v2 Dashboard) ───────────────────────────
+const handleAnalyticsCommand = async (ctx: any, days: number = 30, isEdit: boolean = false) => {
+  const telegramChatId = ctx.from.id.toString();
+  const connData = await getConnectedChannel(telegramChatId);
+
+  if (!connData) {
+    const msg = '⚠️ <b>No YouTube channel connected yet.</b>\n\nConnect via /start.';
+    return isEdit
+      ? ctx.editMessageText(msg, { parse_mode: 'HTML' })
+      : ctx.reply(msg, { parse_mode: 'HTML' });
+  }
+
+  try {
+    const report = await fetchChannelAnalytics(connData.user.id, days);
+
+    const text =
+      `📊 <b>YouTube Channel Analytics Dashboard</b>\n` +
+      `Channel: <b>${connData.channel.title}</b> (Last ${report.days} Days)\n\n` +
+      `📈 <b>Performance Overview:</b>\n` +
+      `• Views: <b>${formatCount(report.totalViews)}</b>\n` +
+      `• Watch Time: <b>${formatCount(report.estimatedMinutesWatched)} hrs</b>\n` +
+      `• Subscribers Gained: <b>+${formatCount(report.subscribersGained)}</b>\n` +
+      `• Likes: <b>${formatCount(report.likes)}</b> | Comments: <b>${formatCount(report.comments)}</b>\n\n` +
+      `🚦 <b>Top Traffic Sources:</b>\n` +
+      report.trafficSources.map((s) => `• ${s.name}: <b>${s.percentage}%</b>`).join('\n') +
+      `\n\n👥 <b>Audience Demographics:</b>\n` +
+      report.demographics.map((d) => `• Age ${d.age}: <b>${d.percentage}%</b>`).join('\n') +
+      `\n\n🎯 <b>AI CTR & Growth Insight:</b>\n` +
+      `<i>"${report.ctrInsight}"</i>`;
+
+    const keyboard = Markup.inlineKeyboard([
+      [
+        Markup.button.callback('📈 Last 7 Days', 'ana_7d'),
+        Markup.button.callback('📊 Last 30 Days', 'ana_30d'),
+        Markup.button.callback('🗓️ Last 90 Days', 'ana_90d'),
+      ],
+      [
+        Markup.button.callback('📹 Manage Videos', 'cmd_videos'),
+        Markup.button.callback('⚡ Live Mode', 'cmd_livemode'),
+      ],
+      [Markup.button.callback('🏠 Back to Start', 'cmd_start')],
+    ]);
+
+    if (isEdit) {
+      await ctx.editMessageText(text, { parse_mode: 'HTML', ...keyboard });
+    } else {
+      await ctx.reply(text, { parse_mode: 'HTML', ...keyboard });
+    }
+  } catch (err: any) {
+    await ctx.reply(`❌ <b>Analytics Error:</b> ${err.message}`, { parse_mode: 'HTML' });
+  }
+};
+
+bot.command('analytics', (ctx) => handleAnalyticsCommand(ctx, 30));
+bot.action('cmd_analytics', async (ctx) => { await ctx.answerCbQuery(); await handleAnalyticsCommand(ctx, 30, true); });
+bot.action('ana_7d', async (ctx) => { await ctx.answerCbQuery(); await handleAnalyticsCommand(ctx, 7, true); });
+bot.action('ana_30d', async (ctx) => { await ctx.answerCbQuery(); await handleAnalyticsCommand(ctx, 30, true); });
+bot.action('ana_90d', async (ctx) => { await ctx.answerCbQuery(); await handleAnalyticsCommand(ctx, 90, true); });
 
 // ── /livemode (Real-Time YouTube Trend & Autocomplete Polling) ────────────────
 const handleLiveModeCommand = async (ctx: any) => {
