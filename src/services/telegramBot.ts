@@ -39,10 +39,29 @@ const userStateMap = new Map<string, UserState>();
 
 const getConnectedChannel = async (telegramChatId: string) => {
   try {
-    const user = await prisma.user.findUnique({
+    // 1. Try finding user by current Telegram chat ID
+    let user = await prisma.user.findUnique({
       where: { telegramChatId },
       include: { channels: true, youtubeAccounts: true },
     });
+
+    // 2. Fallback: try owner TELEGRAM_ALLOWED_CHAT_ID or first user in DB (for self-hosted single owner)
+    if ((!user || user.channels.length === 0) && process.env.TELEGRAM_ALLOWED_CHAT_ID) {
+      user = await prisma.user.findUnique({
+        where: { telegramChatId: process.env.TELEGRAM_ALLOWED_CHAT_ID },
+        include: { channels: true, youtubeAccounts: true },
+      });
+    }
+
+    if (!user || user.channels.length === 0) {
+      const firstUser = await prisma.user.findFirst({
+        include: { channels: true, youtubeAccounts: true },
+      });
+      if (firstUser && firstUser.channels.length > 0) {
+        user = firstUser;
+      }
+    }
+
     if (!user || user.channels.length === 0) return null;
     return { user, channel: user.channels[0], account: user.youtubeAccounts[0] };
   } catch (err: any) {
@@ -56,8 +75,10 @@ bot.command('start', async (ctx) => {
   const telegramChatId = ctx.from.id.toString();
   const firstName = ctx.from.first_name || 'Creator';
 
-  // Generates the full Google OAuth authorization URL (accounts.google.com/...)
-  const oauthUrl = getGoogleAuthUrl(telegramChatId);
+  // Short clean URL: /auth/connect?uid=<chatId> → redirects to Google OAuth
+  const baseUrl = process.env.GOOGLE_REDIRECT_URI?.replace('/auth/google/callback', '') ||
+    'http://localhost:3000';
+  const connectUrl = `${baseUrl}/auth/connect?uid=${telegramChatId}`;
 
   const connData = await getConnectedChannel(telegramChatId);
 
@@ -71,7 +92,7 @@ bot.command('start', async (ctx) => {
       parse_mode: 'HTML',
       ...Markup.inlineKeyboard([
         [Markup.button.callback('📹 Browse Recent Videos', 'cmd_videos')],
-        [Markup.button.url('🔗 Re-Connect YouTube Channel', oauthUrl)],
+        [Markup.button.url('🔗 Re-Connect YouTube Channel', connectUrl)],
       ]),
     });
   } else {
@@ -82,7 +103,7 @@ bot.command('start', async (ctx) => {
     await ctx.reply(text, {
       parse_mode: 'HTML',
       ...Markup.inlineKeyboard([
-        [Markup.button.url('🔗 Connect YouTube Channel', oauthUrl)],
+        [Markup.button.url('🔗 Connect YouTube Channel', connectUrl)],
       ]),
     });
   }

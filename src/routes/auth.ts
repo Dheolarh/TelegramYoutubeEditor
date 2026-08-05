@@ -7,14 +7,25 @@ import { bot } from '../services/telegramBot';
 export const authRouter = Router();
 
 /**
+ * GET /auth/connect
+ * Clean short URL for Telegram button. Accepts ?uid=<telegramChatId>
+ */
+authRouter.get('/connect', (req: Request, res: Response) => {
+  const telegramChatId = (req.query.uid as string) || (req.query.state as string) || process.env.TELEGRAM_ALLOWED_CHAT_ID || '';
+  const authUrl = getGoogleAuthUrl(telegramChatId);
+  return res.redirect(authUrl);
+});
+
+/**
  * GET /auth/google
  * Initiates the Google OAuth authorization redirect.
  */
 authRouter.get('/google', (req: Request, res: Response) => {
-  const telegramChatId = (req.query.state as string) || process.env.TELEGRAM_ALLOWED_CHAT_ID || '';
+  const telegramChatId = (req.query.state as string) || (req.query.uid as string) || process.env.TELEGRAM_ALLOWED_CHAT_ID || '';
   const authUrl = getGoogleAuthUrl(telegramChatId);
   return res.redirect(authUrl);
 });
+
 
 /**
  * GET /auth/google/callback
@@ -73,6 +84,7 @@ authRouter.get('/google/callback', async (req: Request, res: Response) => {
     await prisma.channel.upsert({
       where: { youtubeChannelId: channelData.id },
       update: {
+        userId: user.id,
         title: channelData.title,
         description: channelData.description,
         subscriberCount: channelData.subscriberCount,
