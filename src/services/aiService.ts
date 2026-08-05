@@ -246,7 +246,8 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, fallbackMessage: string
  */
 export const generateAIThumbnail = async (
   title: string,
-  currentThumbnailUrl?: string
+  currentThumbnailUrl?: string,
+  customInstructions?: string
 ): Promise<string> => {
   // Step 1: Analyze thumbnail concept using Text AI (with 6s timeout)
   const isUpgrade = Boolean(currentThumbnailUrl && currentThumbnailUrl.startsWith('http'));
@@ -254,12 +255,25 @@ export const generateAIThumbnail = async (
   const promptAnalysis = `You are a professional YouTube Thumbnail Creative Director.
 Video Title: "${title}"
 ${isUpgrade ? `Existing Thumbnail URL: ${currentThumbnailUrl}` : ''}
+${customInstructions ? `User Custom Guidance / Reference Instructions: "${customInstructions}"` : ''}
 
-GOAL: ${isUpgrade ? `Remaster & upgrade the existing thumbnail into a high-CTR 4k visual` : `Create a new high-CTR thumbnail prompt for "${title}"`}.
+GOAL: ${
+    customInstructions
+      ? `Create a customized high-CTR 4k thumbnail for "${title}" strictly following user guidance: "${customInstructions}"`
+      : isUpgrade
+      ? `Remaster & upgrade the existing thumbnail into a high-CTR 4k visual`
+      : `Create a new high-CTR thumbnail prompt for "${title}"`
+  }.
 
 IMPORTANT RULES:
-- ${isUpgrade ? `Preserve the core subject/theme of the existing thumbnail while upgrading contrast, lighting, 3D text overlay, and focal sharpness.` : `Focus DIRECTLY on objects, gaming visuals, tech graphics, background scenery, or concepts relevant to "${title}".`}
-- Do NOT request random human portraits or faces unless the video title is explicitly about a specific human subject.
+- ${
+    customInstructions
+      ? `Incorporate all user custom requested text, visual elements, colors, and layout instructions.`
+      : isUpgrade
+      ? `Preserve the core subject/theme of the existing thumbnail while upgrading contrast, lighting, 3D text overlay, and focal sharpness.`
+      : `Focus DIRECTLY on objects, gaming visuals, tech graphics, background scenery, or concepts relevant to "${title}".`
+  }
+- Do NOT request random human portraits or faces unless specified.
 - Keep the description focused on 3D graphics, bold colors, dramatic lighting, and clear focal objects.
 
 Respond with ONLY a concise 1-sentence visual description.`;
@@ -268,13 +282,17 @@ Respond with ONLY a concise 1-sentence visual description.`;
   try {
     visualPrompt = await withTimeout(runTextAIWithFallback(promptAnalysis), 6000, 'Visual prompt timeout');
   } catch (err) {
-    visualPrompt = isUpgrade
+    visualPrompt = customInstructions
+      ? `Custom visual cover of ${title} with ${customInstructions}`
+      : isUpgrade
       ? `Upgraded remastered 3D visual cover of ${title} with high contrast and vibrant lighting`
       : `3D graphic cover illustration representing ${title}`;
   }
 
-  // Put video title FRONT AND CENTER + Remaster context in the image prompt
-  const enhancedPrompt = isUpgrade
+  // Put video title FRONT AND CENTER + Remaster/Custom context in the image prompt
+  const enhancedPrompt = customInstructions
+    ? `${title} YouTube thumbnail banner, ${customInstructions}, ${visualPrompt}, vibrant high-contrast 3D graphics, 16:9 wide aspect ratio, 4k cover art`
+    : isUpgrade
     ? `Remastered upgraded YouTube thumbnail for ${title}, ${visualPrompt}, vibrant high-contrast 3D graphics, 16:9 wide aspect ratio, dramatic lighting, 4k high CTR cover art`
     : `${title} YouTube thumbnail, ${visualPrompt}, vibrant colors, 16:9 wide aspect ratio, bold contrast, professional lighting, 4k quality cover art`;
 

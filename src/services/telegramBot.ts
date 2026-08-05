@@ -38,7 +38,13 @@ export const bot = new Telegraf(botToken || 'dummy_token_for_build');
 bot.use(authGuard);
 
 interface UserState {
-  action: 'AWAITING_TITLE' | 'AWAITING_DESC' | 'AWAITING_TAGS' | 'AWAITING_THUMBNAIL' | 'AWAITING_COMMENT_REPLY';
+  action:
+    | 'AWAITING_TITLE'
+    | 'AWAITING_DESC'
+    | 'AWAITING_TAGS'
+    | 'AWAITING_THUMBNAIL'
+    | 'AWAITING_COMMENT_REPLY'
+    | 'AWAITING_THUMB_CUSTOM';
   videoId: string;
   youtubeVideoId: string;
   extraData?: any;
@@ -670,6 +676,9 @@ bot.action(/^ais_thumb_(.+)$/, async (ctx) => {
       [
         Markup.button.callback('✅ Apply', `aia_thumb_${video.id}`),
         Markup.button.callback('🔄 Regenerate', `ais_thumb_${video.id}`),
+      ],
+      [
+        Markup.button.callback('✏️ Custom Prompt / Ref', `aie_thumb_${video.id}`),
         Markup.button.callback('❌ Discard', `vid_${video.id}`),
       ],
     ]);
@@ -690,6 +699,26 @@ bot.action(/^ais_thumb_(.+)$/, async (ctx) => {
   } catch (err: any) {
     await ctx.reply(`❌ <b>AI Thumbnail Error:</b> ${err.message}`, { parse_mode: 'HTML' });
   }
+});
+
+// Custom Prompt / Image Reference Thumbnail Guidance
+bot.action(/^aie_thumb_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const video = await prisma.video.findUnique({ where: { id: ctx.match[1] } });
+  if (!video) return;
+
+  userStateMap.set(ctx.from.id.toString(), {
+    action: 'AWAITING_THUMB_CUSTOM',
+    videoId: video.id,
+    youtubeVideoId: video.youtubeVideoId,
+  });
+
+  const promptText =
+    `✏️ <b>Custom AI Thumbnail Guidance for:</b>\n"${video.title}"\n\n` +
+    `Reply with your custom instructions as a text message (e.g. <i>"Add bold neon yellow text saying EPIC WIN with dark blue fire background"</i>)\n\n` +
+    `<b>OR</b> send an <b>image reference photo</b> in this chat that you want the AI to imitate as a visual guide!`;
+
+  await ctx.reply(promptText, { parse_mode: 'HTML' });
 });
 
 // Apply AI Thumbnail
@@ -926,30 +955,81 @@ bot.action(/^ais_pincmt_(.+)$/, async (ctx) => {
   }
 });
 
-// ── Photo handler (Thumbnail upload) ─────────────────────────────────────────
+// ── Photo handler (Thumbnail upload & Reference Image Guidance) ───────────────
 bot.on('photo', async (ctx: any) => {
   const telegramChatId = ctx.from.id.toString();
   const state = userStateMap.get(telegramChatId);
-  if (!state || state.action !== 'AWAITING_THUMBNAIL') return;
+  if (!state) return;
 
   const connData = await getConnectedChannel(telegramChatId);
   if (!connData) return;
 
-  const photo = ctx.message.photo[ctx.message.photo.length - 1];
-  const fileLink = await ctx.telegram.getFileLink(photo.file_id);
-  await ctx.reply('⏳ <b>Uploading thumbnail to YouTube...</b>', { parse_mode: 'HTML' });
+  if (state.action === 'AWAITING_THUMBNAIL') {
+    const photo = ctx.message.photo[ctx.message.photo.length - 1];
+    const fileLink = await ctx.telegram.getFileLink(photo.file_id);
+    await ctx.reply('⏳ <b>Uploading thumbnail to YouTube...</b>', { parse_mode: 'HTML' });
 
-  try {
-    const res = await axios.get(fileLink.href, { responseType: 'arraybuffer' });
-    await updateVideoThumbnail(connData.user.id, state.youtubeVideoId, Buffer.from(res.data), 'image/jpeg');
+    try {
+      const res = await axios.get(fileLink.href, { responseType: 'arraybuffer' });
+      await updateVideoThumbnail(connData.user.id, state.youtubeVideoId, Buffer.from(res.data), 'image/jpeg');
+      userStateMap.delete(telegramChatId);
+      await ctx.reply('✅ <b>Thumbnail Updated!</b>', { parse_mode: 'HTML' });
+    } catch (err: any) {
+      await ctx.reply(`❌ <b>Failed:</b> ${err.message}`, { parse_mode: 'HTML' });
+    }
+    return;
+  }
+
+  if (state.action === 'AWAITING_THUMB_CUSTOM') {
+    const video = await prisma.video.findUnique({ where: { id: state.videoId } });
+    if (!video) return;
+
+    const photo = ctx.message.photo[ctx.message.photo.length - 1];
+    const fileLink = await ctx.telegram.getFileLink(photo.file_id);
+
     userStateMap.delete(telegramChatId);
-    await ctx.reply('✅ <b>Thumbnail Updated!</b>', { parse_mode: 'HTML' });
-  } catch (err: any) {
-    await ctx.reply(`❌ <b>Failed:</b> ${err.message}`, { parse_mode: 'HTML' });
+
+    await ctx.sendChatAction('upload_photo');
+    await ctx.reply('🤖 <b>Analyzing reference photo & rendering custom AI thumbnail...</b>\n<i>(Please wait 15–25 seconds)</i>', { parse_mode: 'HTML' });
+
+    try {
+      const customInstruction = `Remaster visual layout and color palette inspired by user reference image (${fileLink.href})`;
+      const imageUrl = await generateAIThumbnail(video.title, video.thumbnailUrl || undefined, customInstruction);
+      aiCacheMap.set(`thumb_${video.id}`, imageUrl);
+
+      const caption = `🖼️ <b>Custom AI Reference Thumbnail for:</b>\n"${video.title}"\n\nChoose an action below:`;
+      const keyboard = Markup.inlineKeyboard([
+        [
+          Markup.button.callback('✅ Apply', `aia_thumb_${video.id}`),
+          Markup.button.callback('🔄 Regenerate', `ais_thumb_${video.id}`),
+        ],
+        [
+          Markup.button.callback('✏️ Custom Prompt / Ref', `aie_thumb_${video.id}`),
+          Markup.button.callback('❌ Discard', `vid_${video.id}`),
+        ],
+      ]);
+
+      if (imageUrl.startsWith('data:image')) {
+        const base64Data = imageUrl.split(',')[1];
+        const buffer = Buffer.from(base64Data, 'base64');
+        await ctx.replyWithPhoto({ source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
+      } else {
+        try {
+          const res = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 20000 });
+          const buffer = Buffer.from(res.data);
+          await ctx.replyWithPhoto({ source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
+        } catch (imgErr) {
+          await ctx.replyWithPhoto(imageUrl, { caption, parse_mode: 'HTML', ...keyboard });
+        }
+      }
+    } catch (err: any) {
+      await ctx.reply(`❌ <b>Custom Thumbnail Error:</b> ${err.message}`, { parse_mode: 'HTML' });
+    }
+    return;
   }
 });
 
-// ── Text handler (edits & replies) ────────────────────────────────────────────
+// ── Text handler (edits, replies & custom thumbnail prompts) ──────────────────
 bot.on('text', async (ctx: any) => {
   const telegramChatId = ctx.from.id.toString();
   const state = userStateMap.get(telegramChatId);
@@ -979,6 +1059,43 @@ bot.on('text', async (ctx: any) => {
       await replyToComment(connData.user.id, commentId, text);
       userStateMap.delete(telegramChatId);
       await ctx.reply('✅ <b>Reply Posted!</b>', { parse_mode: 'HTML' });
+    } else if (state.action === 'AWAITING_THUMB_CUSTOM') {
+      const video = await prisma.video.findUnique({ where: { id: state.videoId } });
+      if (!video) return;
+
+      userStateMap.delete(telegramChatId);
+
+      await ctx.sendChatAction('upload_photo');
+      await ctx.reply('🤖 <b>Generating custom AI thumbnail based on your instructions...</b>\n<i>(Please wait 15–25 seconds)</i>', { parse_mode: 'HTML' });
+
+      const imageUrl = await generateAIThumbnail(video.title, video.thumbnailUrl || undefined, text);
+      aiCacheMap.set(`thumb_${video.id}`, imageUrl);
+
+      const caption = `🖼️ <b>Custom AI Thumbnail for:</b>\n"${video.title}"\n<i>Instructions: "${text}"</i>\n\nChoose an action below:`;
+      const keyboard = Markup.inlineKeyboard([
+        [
+          Markup.button.callback('✅ Apply', `aia_thumb_${video.id}`),
+          Markup.button.callback('🔄 Regenerate', `ais_thumb_${video.id}`),
+        ],
+        [
+          Markup.button.callback('✏️ Custom Prompt / Ref', `aie_thumb_${video.id}`),
+          Markup.button.callback('❌ Discard', `vid_${video.id}`),
+        ],
+      ]);
+
+      if (imageUrl.startsWith('data:image')) {
+        const base64Data = imageUrl.split(',')[1];
+        const buffer = Buffer.from(base64Data, 'base64');
+        await ctx.replyWithPhoto({ source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
+      } else {
+        try {
+          const res = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 20000 });
+          const buffer = Buffer.from(res.data);
+          await ctx.replyWithPhoto({ source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
+        } catch (imgErr) {
+          await ctx.replyWithPhoto(imageUrl, { caption, parse_mode: 'HTML', ...keyboard });
+        }
+      }
     }
   } catch (err: any) {
     await ctx.reply(`❌ <b>Update Failed:</b> ${err.message}`, { parse_mode: 'HTML' });
