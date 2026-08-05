@@ -15,14 +15,15 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
 
   try {
     const users = await prisma.user.findMany({
-      where: specificChatId ? { telegramChatId: specificChatId } : { liveModeEnabled: true },
+      where: (specificChatId ? { telegramChatId: specificChatId } : { liveModeEnabled: true }) as any,
       include: { channels: true },
     });
 
     for (const user of users) {
-      if (!user.telegramChatId || user.channels.length === 0) continue;
+      const uAny = user as any;
+      if (!user.telegramChatId || !uAny.channels || uAny.channels.length === 0) continue;
 
-      const channel = user.channels[0];
+      const channel = uAny.channels[0];
       const nicheQuery = channel.title || 'Gaming Technology';
 
       console.log(`🔍 Live Mode scanning trends for channel "${channel.title}"...`);

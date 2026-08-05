@@ -229,9 +229,6 @@ bot.action('cmd_live_toggle', async (ctx: any) => {
   await handleLiveModeCommand(ctx);
 });
 
-  await handleLiveModeCommand(ctx);
-});
-
 bot.action('cmd_live_scan', async (ctx: any) => {
   await ctx.answerCbQuery();
   const telegramChatId = ctx.from.id.toString();
