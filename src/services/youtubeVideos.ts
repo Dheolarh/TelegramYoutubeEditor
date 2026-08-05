@@ -46,16 +46,21 @@ export const getValidAccessToken = async (userId: string): Promise<string> => {
 };
 
 /**
- * Helper to parse ISO 8601 duration (e.g. PT2M30S) and check if it's a Short (<= 3 mins).
+ * Helper to check if a video is an actual YouTube Short (#shorts in title/desc or <= 60s vertical duration).
  */
-const parseIsShort = (isoDuration: string): boolean => {
+const parseIsShort = (isoDuration: string, title: string = '', description: string = ''): boolean => {
+  const text = `${title} ${description}`.toLowerCase();
+  if (text.includes('#shorts') || text.includes('#short')) return true;
+
   const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!match) return false;
   const hours = parseInt(match[1] || '0', 10);
   const minutes = parseInt(match[2] || '0', 10);
   const seconds = parseInt(match[3] || '0', 10);
   const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-  return totalSeconds <= 180; // Shorts are <= 3 minutes (180s)
+
+  // YouTube Shorts must be 60 seconds or less and typically tagged
+  return totalSeconds <= 60 && (text.includes('short') || text.includes('shorts'));
 };
 
 /**
@@ -116,7 +121,7 @@ export const fetchRecentVideos = async (
 
   for (const item of videosRes.data.items) {
     const duration = item.contentDetails.duration || 'PT0S';
-    const isShort = parseIsShort(duration);
+    const isShort = parseIsShort(duration, item.snippet.title, item.snippet.description || '');
 
     const videoData = {
       channelId: channelRecord.id,
