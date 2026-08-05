@@ -13,6 +13,8 @@ import {
   replyToComment,
 } from './youtubeEdit';
 import { generateMetadataSuggestions } from './aiService';
+import { getGoogleAuthUrl } from './youtubeAuth';
+
 
 dotenv.config();
 
@@ -53,42 +55,39 @@ const getConnectedChannel = async (telegramChatId: string) => {
 bot.command('start', async (ctx) => {
   const telegramChatId = ctx.from.id.toString();
   const firstName = ctx.from.first_name || 'Creator';
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/auth/google/callback';
-  const authUrl = `${redirectUri}?state=${telegramChatId}`;
+
+  // Generates the full Google OAuth authorization URL (accounts.google.com/...)
+  const oauthUrl = getGoogleAuthUrl(telegramChatId);
+
   const connData = await getConnectedChannel(telegramChatId);
 
   if (connData) {
     const text =
       `👋 <b>Welcome back, ${firstName}!</b>\n\n` +
       `✅ <b>Connected Channel:</b> ${connData.channel.title} (${connData.channel.subscriberCount.toLocaleString()} subs)\n\n` +
-      `🔗 <a href="${authUrl}"><b>Re-Connect YouTube Channel</b></a>\n\n` +
       `Use /videos to browse uploads or /search to find a video.`;
-
-    const buttons: any[] = [
-      [Markup.button.callback('📹 Browse Recent Videos', 'cmd_videos')],
-    ];
-    if (authUrl.startsWith('https://')) {
-      buttons.push([Markup.button.url('🔗 Re-Connect YouTube Channel', authUrl)]);
-    }
-
-    await ctx.reply(text, { parse_mode: 'HTML', ...Markup.inlineKeyboard(buttons) });
-  } else {
-    const text =
-      `👋 <b>Welcome to your Personal YouTube Assistant, ${firstName}!</b>\n\n` +
-      `Manage, edit metadata, reply to comments, and AI-optimize your YouTube channel directly from Telegram.\n\n` +
-      `🔗 <a href="${authUrl}"><b>Click Here to Connect Your YouTube Channel</b></a>`;
-
-    const buttons: any[] = [];
-    if (authUrl.startsWith('https://')) {
-      buttons.push([Markup.button.url('🔗 Connect YouTube Channel', authUrl)]);
-    }
 
     await ctx.reply(text, {
       parse_mode: 'HTML',
-      ...(buttons.length > 0 ? Markup.inlineKeyboard(buttons) : {}),
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('📹 Browse Recent Videos', 'cmd_videos')],
+        [Markup.button.url('🔗 Re-Connect YouTube Channel', oauthUrl)],
+      ]),
+    });
+  } else {
+    const text =
+      `👋 <b>Welcome to your Personal YouTube Assistant, ${firstName}!</b>\n\n` +
+      `Manage, edit metadata, reply to comments, and AI-optimize your YouTube channel directly from Telegram.`;
+
+    await ctx.reply(text, {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([
+        [Markup.button.url('🔗 Connect YouTube Channel', oauthUrl)],
+      ]),
     });
   }
 });
+
 
 // ── /help ─────────────────────────────────────────────────────────────────────
 bot.command('help', async (ctx) => {
