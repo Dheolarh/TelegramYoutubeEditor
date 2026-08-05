@@ -170,9 +170,9 @@ export const fetchRecentVideos = async (
       thumbnailUrl: saved.thumbnailUrl || '',
       duration: saved.duration || '',
       isShort: saved.isShort,
-      viewCount: saved.viewCount,
-      likeCount: saved.likeCount,
-      commentCount: saved.commentCount,
+      viewCount: (saved as any).viewCount || 0,
+      likeCount: (saved as any).likeCount || 0,
+      commentCount: (saved as any).commentCount || 0,
       publishedAt: saved.publishedAt?.toISOString() || '',
     });
   }
@@ -213,9 +213,9 @@ export const searchChannelVideos = async (
       thumbnailUrl: v.thumbnailUrl || '',
       duration: v.duration || '',
       isShort: v.isShort,
-      viewCount: v.viewCount,
-      likeCount: v.likeCount,
-      commentCount: v.commentCount,
+      viewCount: (v as any).viewCount || 0,
+      likeCount: (v as any).likeCount || 0,
+      commentCount: (v as any).commentCount || 0,
       publishedAt: v.publishedAt?.toISOString() || '',
     }));
   }
