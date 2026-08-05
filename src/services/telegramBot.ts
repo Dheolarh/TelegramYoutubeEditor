@@ -503,7 +503,10 @@ bot.action(/^aia_thumb_(.+)$/, async (ctx) => {
 
     await updateVideoThumbnail(connData.user.id, video.youtubeVideoId, buffer, 'image/jpeg');
     aiCacheMap.delete(`thumb_${video.id}`);
-    await ctx.reply(`✅ <b>AI Thumbnail Successfully Applied to YouTube!</b>`, { parse_mode: 'HTML' });
+    await ctx.reply(`✅ <b>AI Thumbnail Successfully Applied to YouTube!</b>`, {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([[Markup.button.callback('🎬 Back to Video', `vid_${video.id}`)]]),
+    });
   } catch (err: any) {
     await ctx.reply(`❌ <b>Failed to apply thumbnail:</b> ${err.message}`, { parse_mode: 'HTML' });
   }
@@ -563,7 +566,10 @@ bot.action(/^aia_t(\d+)_(.+)$/, async (ctx) => {
   try {
     const updated = await updateVideoTitle(connData.user.id, video.youtubeVideoId, selectedTitle);
     aiCacheMap.delete(`titles_${videoId}`);
-    await ctx.reply(`✅ <b>YouTube Title Updated!</b>\n\n"${updated}"`, { parse_mode: 'HTML' });
+    await ctx.reply(`✅ <b>YouTube Title Updated!</b>\n\n"${updated}"`, {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard([[Markup.button.callback('🎬 Back to Video', `vid_${video.id}`)]]),
+    });
   } catch (err: any) {
     await ctx.reply(`❌ <b>Failed to update title:</b> ${err.message}`, { parse_mode: 'HTML' });
   }

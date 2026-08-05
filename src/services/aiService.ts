@@ -87,6 +87,19 @@ const runTextAIWithFallback = async (prompt: string): Promise<string> => {
 };
 
 /**
+ * Fetch real-time Google Trends daily search queries.
+ */
+export const fetchLiveTrends = async (): Promise<string[]> => {
+  try {
+    const res = await axios.get('https://trends.google.com/trends/trendingsearches/daily/rss?geo=US', { timeout: 3000 });
+    const matches = [...res.data.matchAll(/<title>(.*?)<\/title>/g)].map(m => m[1]).filter(t => t && t !== 'Daily Search Trends');
+    return matches.slice(0, 10);
+  } catch (e) {
+    return ['latest updates 2025', 'how to fixed', 'best guide', 'new patch release', 'trending topic'];
+  }
+};
+
+/**
  * 1. Generate Clickworthy Trending Titles
  */
 export const generateAITitles = async (
@@ -94,17 +107,22 @@ export const generateAITitles = async (
   description: string,
   tags: string[]
 ): Promise<AITitleResult> => {
+  const liveTrends = await fetchLiveTrends();
+
   const prompt = `You are a YouTube SEO and viral title expert.
-Analyze the video details below and generate 3 clickworthy, high-CTR titles tailored to current YouTube trends in this niche.
+Analyze the video details and current live search trends below to generate 3 clickworthy, high-CTR titles.
 
 Current Title: "${currentTitle}"
 Description snippet: "${description.slice(0, 300)}"
 Tags: ${JSON.stringify(tags)}
+Live Google Search Trends Right Now: ${JSON.stringify(liveTrends)}
+
+Incorporate trending viral angles (e.g. 2025 updates, fixes, secrets, or trending search intent) if relevant to boost clickability.
 
 Respond STRICTLY in JSON format:
 {
   "titles": ["Viral Title 1", "Clickworthy Title 2", "SEO Title 3"],
-  "reasoning": "Short explanation of why these titles fit current trends..."
+  "reasoning": "Short explanation of why these titles match current search trends..."
 }`;
 
   const rawJson = await runTextAIWithFallback(prompt);
