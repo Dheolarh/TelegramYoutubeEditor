@@ -11,6 +11,7 @@ datasource db {
 model User {
   id              String           @id @default(uuid())
   telegramChatId  String           @unique @map("telegram_chat_id")
+  liveModeEnabled Boolean          @default(false) @map("live_mode_enabled")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
   youtubeAccounts YouTubeAccount[]

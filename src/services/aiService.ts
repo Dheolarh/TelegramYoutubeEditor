@@ -302,3 +302,66 @@ Respond with ONLY a 1-paragraph visual prompt for AI image generation.`;
   const encoded = encodeURIComponent(enhancedPrompt);
   return `https://image.pollinations.ai/prompt/${encoded}?width=1280&height=720&nologo=true`;
 };
+
+export interface AIContentSuggestion {
+  title: string;
+  description: string;
+  tags: string[];
+  thumbnailUrl: string;
+  trendReason: string;
+}
+
+/**
+ * 6. Generate Complete Video Post Suggestion based on YouTube Niche Trend & Autocomplete Keywords
+ */
+export const generateAIContentSuggestion = async (
+  trendTitle: string,
+  trendKeywords: string[],
+  niche: string = 'Technology'
+): Promise<AIContentSuggestion> => {
+  const prompt = `You are a viral YouTube Creator Strategist.
+A video titled "${trendTitle}" is currently trending on YouTube in the "${niche}" niche.
+Real YouTube search autocomplete keywords typed by viewers: ${JSON.stringify(trendKeywords)}
+
+Perform deep creative research and generate a complete NEW video post suggestion for a content creator in this niche.
+
+Respond STRICTLY in JSON format:
+{
+  "title": "Viral Clickworthy Title for New Video",
+  "description": "Engaging description hook explaining what to cover in this new video...",
+  "tags": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5", "keyword6", "keyword7", "keyword8"],
+  "trendReason": "Why this video idea will gain massive views based on current YouTube search intent..."
+}`;
+
+  const rawJson = await runTextAIWithFallback(prompt);
+  let title = `How to Master ${trendTitle}`;
+  let description = `Full breakdown and complete guide on ${trendTitle}.`;
+  let tags = trendKeywords.slice(0, 8);
+  let trendReason = 'High viral search demand on YouTube right now.';
+
+  try {
+    const parsed = JSON.parse(rawJson.replace(/```json|```/g, '').trim());
+    if (parsed.title) title = parsed.title;
+    if (parsed.description) description = parsed.description;
+    if (parsed.tags) tags = parsed.tags;
+    if (parsed.trendReason) trendReason = parsed.trendReason;
+  } catch (e) {
+    // fallback
+  }
+
+  // Generate thumbnail image
+  let thumbnailUrl = '';
+  try {
+    thumbnailUrl = await generateAIThumbnail(title);
+  } catch (e) {
+    thumbnailUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(title)}?width=1280&height=720&nologo=true`;
+  }
+
+  return {
+    title,
+    description,
+    tags,
+    thumbnailUrl,
+    trendReason,
+  };
+};

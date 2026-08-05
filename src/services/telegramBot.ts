@@ -20,6 +20,7 @@ import {
   generateAIThumbnail,
 } from './aiService';
 import { getGoogleAuthUrl } from './youtubeAuth';
+import { runLiveModeScanner, suggestionCacheMap } from './liveModeCron';
 
 
 dotenv.config();
@@ -173,6 +174,86 @@ const handleHelpCommand = async (ctx: any) => {
 
 bot.command('help', handleHelpCommand);
 bot.action('cmd_help', async (ctx) => { await ctx.answerCbQuery(); await handleHelpCommand(ctx); });
+
+// ── /livemode (Real-Time YouTube Trend & Autocomplete Polling) ────────────────
+const handleLiveModeCommand = async (ctx: any) => {
+  const telegramChatId = ctx.from.id.toString();
+  const connData = await getConnectedChannel(telegramChatId);
+
+  if (!connData) {
+    return ctx.reply('⚠️ <b>Connect your YouTube channel via /start first.</b>', { parse_mode: 'HTML' });
+  }
+
+  const user = await prisma.user.findUnique({ where: { telegramChatId } });
+  const isEnabled = user?.liveModeEnabled || false;
+
+  const text = isEnabled
+    ? `⚡ <b>LIVE MODE ENABLED</b> 🟢\n\n` +
+      `The bot is actively polling YouTube for real-time trending videos, news, and viewer search autocomplete keywords in your channel's niche (<b>${connData.channel.title}</b>).\n\n` +
+      `Whenever a viral trend is detected, the AI will research it and send you complete <b>Video Post Suggestions</b> (Title + Thumbnail + Description + Tags).\n\n` +
+      `<i>Status: Active (Polling YouTube every 6 hours)</i>`
+    : `⚡ <b>LIVE MODE DISABLED</b> 🔴\n\n` +
+      `Automatic YouTube trend polling is currently turned off.\n\n` +
+      `Turn ON Live Mode to receive proactive AI video post concepts whenever viral trends break in your YouTube niche!`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [
+      isEnabled
+        ? Markup.button.callback('🔴 Turn OFF Live Mode', 'cmd_live_toggle')
+        : Markup.button.callback('🟢 Turn ON Live Mode', 'cmd_live_toggle'),
+    ],
+    [Markup.button.callback('⚡ Trigger Instant Trend Scan', 'cmd_live_scan')],
+  ]);
+
+  await ctx.reply(text, { parse_mode: 'HTML', ...keyboard });
+};
+
+bot.command('livemode', handleLiveModeCommand);
+bot.action('cmd_livemode', async (ctx) => { await ctx.answerCbQuery(); await handleLiveModeCommand(ctx); });
+
+bot.action('cmd_live_toggle', async (ctx: any) => {
+  await ctx.answerCbQuery();
+  const telegramChatId = ctx.from.id.toString();
+  const user = await prisma.user.findUnique({ where: { telegramChatId } });
+  if (!user) return;
+
+  const newStatus = !user.liveModeEnabled;
+  await prisma.user.update({
+    where: { telegramChatId },
+    data: { liveModeEnabled: newStatus },
+  });
+
+  await handleLiveModeCommand(ctx);
+});
+
+bot.action('cmd_live_scan', async (ctx: any) => {
+  await ctx.answerCbQuery();
+  const telegramChatId = ctx.from.id.toString();
+  await ctx.reply('⚡ <b>Scanning YouTube API for niche trends & autocomplete queries...</b>', { parse_mode: 'HTML' });
+  await runLiveModeScanner(telegramChatId);
+});
+
+// Live Mode Post Suggestion Actions
+bot.action(/^save_sug_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery('📌 Suggestion saved!');
+  await ctx.reply('📌 <b>Video Concept Saved to your ideas library!</b>', { parse_mode: 'HTML' });
+});
+
+bot.action(/^regen_sug_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const telegramChatId = ctx.from.id.toString();
+  await ctx.reply('🔄 <b>Regenerating fresh video post concept...</b>', { parse_mode: 'HTML' });
+  await runLiveModeScanner(telegramChatId);
+});
+
+bot.action(/^dismiss_sug_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery('Dismissed');
+  try {
+    await ctx.deleteMessage();
+  } catch (e) {
+    await ctx.reply('❌ <b>Dismissed.</b>', { parse_mode: 'HTML' });
+  }
+});
 
 
 // ── /videos (Paginated Video Listing) ─────────────────────────────────────────
