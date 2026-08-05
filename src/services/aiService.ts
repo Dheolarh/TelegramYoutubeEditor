@@ -271,7 +271,7 @@ Respond with ONLY a 1-paragraph visual prompt for AI image generation.`;
   if (process.env.OPENAI_API_KEY) {
     try {
       console.log('🎨 Generating thumbnail with OpenAI DALL-E 3...');
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 8000 });
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 25000 });
       const result = await withTimeout(
         openai.images.generate({
           model: 'dalle-3',
@@ -279,13 +279,13 @@ Respond with ONLY a 1-paragraph visual prompt for AI image generation.`;
           n: 1,
           size: '1024x1024',
         }),
-        8000,
+        25000,
         'DALL-E 3 timeout'
       );
       const imageUrl = result.data?.[0]?.url;
       if (imageUrl) return imageUrl;
     } catch (err: any) {
-      console.warn(`⚠️ OpenAI DALL-E 3 failed: ${err.message}. Trying Imagen 3 fallback...`);
+      console.warn(`OpenAI DALL-E 3 failed: ${err.message}. Trying Imagen 3 fallback...`);
     }
   }
 
@@ -302,7 +302,7 @@ Respond with ONLY a 1-paragraph visual prompt for AI image generation.`;
             aspectRatio: '16:9',
           },
         },
-        { headers: { 'Content-Type': 'application/json' }, timeout: 8000 }
+        { headers: { 'Content-Type': 'application/json' }, timeout: 25000 }
       );
       const base64Image = response.data?.predictions?.[0]?.bytesBase64Encoded;
       if (base64Image) {

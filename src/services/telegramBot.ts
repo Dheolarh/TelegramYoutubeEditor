@@ -534,7 +534,8 @@ bot.action(/^ais_thumb_(.+)$/, async (ctx) => {
   const video = await prisma.video.findUnique({ where: { id: ctx.match[1] } });
   if (!video) return;
 
-  await ctx.reply('🤖 <b>Analyzing video title & generating high-CTR thumbnail...</b>\n<i>(This may take 5–10 seconds)</i>', { parse_mode: 'HTML' });
+  await ctx.sendChatAction('upload_photo');
+  await ctx.reply('🤖 <b>Analyzing video title & generating high-CTR thumbnail...</b>\n<i>(Generating high-quality AI art... Please wait 15–25 seconds)</i>', { parse_mode: 'HTML' });
 
   try {
     const imageUrl = await generateAIThumbnail(video.title, video.thumbnailUrl || undefined);
@@ -555,7 +556,7 @@ bot.action(/^ais_thumb_(.+)$/, async (ctx) => {
       await ctx.replyWithPhoto({ source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
     } else {
       try {
-        const res = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 6000 });
+        const res = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 20000 });
         const buffer = Buffer.from(res.data);
         await ctx.replyWithPhoto({ source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
       } catch (imgErr) {
