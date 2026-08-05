@@ -252,18 +252,22 @@ export const generateAIThumbnail = async (
   const promptAnalysis = `You are a professional YouTube Thumbnail Creative Director.
 Create an image generation prompt for a high-CTR YouTube thumbnail for the video titled "${title}".
 
-Analyze visual elements needed for maximum CTR (e.g. bold contrast, dramatic lighting, clear focal subject, vibrant colors, 4k quality).
+IMPORTANT RULES:
+- Focus DIRECTLY on objects, gaming visuals, tech graphics, background scenery, or concepts relevant to "${title}".
+- Do NOT request random human portraits or faces unless the video title is explicitly about a specific human subject.
+- Keep the description focused on 3D graphics, bold colors, dramatic lighting, and clear focal objects.
 
-Respond with ONLY a 1-paragraph visual prompt for AI image generation.`;
+Respond with ONLY a concise 1-sentence visual description.`;
 
   let visualPrompt = '';
   try {
     visualPrompt = await withTimeout(runTextAIWithFallback(promptAnalysis), 6000, 'Visual prompt timeout');
   } catch (err) {
-    visualPrompt = `Vibrant 4k high-CTR YouTube thumbnail visual for video about ${title}`;
+    visualPrompt = `3D graphic cover illustration representing ${title}`;
   }
 
-  const enhancedPrompt = `High CTR 16:9 YouTube thumbnail, bold contrast, professional lighting, 4k resolution, eye-catching focal subject: ${visualPrompt}`;
+  // Put video title FRONT AND CENTER in the image prompt
+  const enhancedPrompt = `${title} YouTube thumbnail, ${visualPrompt}, vibrant colors, 16:9 wide aspect ratio, bold contrast, professional lighting, 4k quality cover art`;
 
   // Step 2: Image Generation with Fallback (OpenAI DALL-E 3 -> Google Imagen 3 -> Pollinations)
 
@@ -313,11 +317,11 @@ Respond with ONLY a 1-paragraph visual prompt for AI image generation.`;
     }
   }
 
-  // Attempt C: Fast Pollinations AI Image Endpoint
+  // Attempt C: Fast Pollinations AI Image Endpoint (Using full topic prompt)
   console.log('🎨 Generating thumbnail with Pollinations AI...');
-  const encoded = encodeURIComponent(enhancedPrompt.slice(0, 150));
-  const seed = Math.floor(Math.random() * 10000);
-  return `https://image.pollinations.ai/prompt/${encoded}?width=1280&height=720&nologo=true&seed=${seed}`;
+  const encodedPrompt = encodeURIComponent(enhancedPrompt);
+  const seed = Math.floor(Math.random() * 90000) + 10000;
+  return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&seed=${seed}`;
 };
 
 export interface AIContentSuggestion {
