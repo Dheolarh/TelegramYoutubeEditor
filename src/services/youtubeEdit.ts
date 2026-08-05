@@ -181,26 +181,37 @@ export const fetchVideoComments = async (
 ): Promise<CommentItem[]> => {
   const accessToken = await getValidAccessToken(userId);
 
-  const response = await axios.get('https://www.googleapis.com/youtube/v3/commentThreads', {
-    params: {
-      videoId: youtubeVideoId,
-      part: 'snippet',
-      maxResults,
-      order: 'relevance',
-    },
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  try {
+    const response = await axios.get('https://www.googleapis.com/youtube/v3/commentThreads', {
+      params: {
+        videoId: youtubeVideoId,
+        part: 'snippet',
+        maxResults,
+        order: 'relevance',
+      },
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
 
-  const items = response.data.items || [];
-  return items.map((item: any) => {
-    const topComment = item.snippet.topLevelComment.snippet;
-    return {
-      commentId: item.snippet.topLevelComment.id,
-      authorName: topComment.authorDisplayName,
-      textDisplay: topComment.textDisplay,
-      publishedAt: topComment.publishedAt,
-    };
-  });
+    const items = response.data.items || [];
+    return items.map((item: any) => {
+      const topComment = item.snippet.topLevelComment.snippet;
+      return {
+        commentId: item.snippet.topLevelComment.id,
+        authorName: topComment.authorDisplayName,
+        textDisplay: topComment.textDisplay,
+        publishedAt: topComment.publishedAt,
+      };
+    });
+  } catch (err: any) {
+    if (err.response?.status === 403) {
+      const reason = err.response?.data?.error?.errors?.[0]?.reason || err.response?.data?.error?.message || '';
+      if (reason.includes('disabled') || reason === 'commentsDisabled') {
+        throw new Error('Comments are disabled for this video on YouTube.');
+      }
+      throw new Error(err.response?.data?.error?.message || 'Access forbidden (403). Check YouTube channel permissions.');
+    }
+    throw err;
+  }
 };
 
 /**

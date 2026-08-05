@@ -245,13 +245,28 @@ bot.action(/^vid_(.+)$/, async (ctx) => {
     `🏷️ ${video.tags.slice(0, 5).join(', ') || 'No tags'}\n\n` +
     `<b>Choose an action:</b>`;
 
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('✏️ Edit Title', `act_title_${video.id}`), Markup.button.callback('📝 Edit Description', `act_desc_${video.id}`)],
+    [Markup.button.callback('🏷️ Edit Tags', `act_tags_${video.id}`), Markup.button.callback('🖼️ Update Thumbnail', `act_thumb_${video.id}`)],
+    [Markup.button.callback('💬 View Comments', `act_comments_${video.id}`), Markup.button.callback('🤖 AI Optimize', `act_ai_${video.id}`)],
+  ]);
+
+  if (video.thumbnailUrl) {
+    try {
+      await ctx.replyWithPhoto(video.thumbnailUrl, {
+        caption: text,
+        parse_mode: 'HTML',
+        ...keyboard,
+      });
+      return;
+    } catch (e) {
+      // Fallback to text reply if photo fails
+    }
+  }
+
   await ctx.reply(text, {
     parse_mode: 'HTML',
-    ...Markup.inlineKeyboard([
-      [Markup.button.callback('✏️ Edit Title', `act_title_${video.id}`), Markup.button.callback('📝 Edit Description', `act_desc_${video.id}`)],
-      [Markup.button.callback('🏷️ Edit Tags', `act_tags_${video.id}`), Markup.button.callback('🖼️ Update Thumbnail', `act_thumb_${video.id}`)],
-      [Markup.button.callback('💬 View Comments', `act_comments_${video.id}`), Markup.button.callback('🤖 AI Optimize', `act_ai_${video.id}`)],
-    ]),
+    ...keyboard,
   });
 });
 
