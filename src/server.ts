@@ -26,6 +26,11 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/auth', authRouter);
+app.get('/connect', (req, res) => {
+  const uid = (req.query.uid as string) || (req.query.state as string) || '';
+  res.redirect(`/auth/connect?uid=${uid}`);
+});
+
 
 // Start Server & Launch Telegram Bot
 app.listen(PORT, async () => {
