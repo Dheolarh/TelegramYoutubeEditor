@@ -297,7 +297,7 @@ const renderVideoList = async (ctx: any, page: number = 1, isEdit: boolean = fal
 
     pageVideos.forEach((v, i) => {
       const num = startIndex + i + 1;
-      text += `${num}. <b>${v.title}</b> — 👁️ ${formatCount((v as any).viewCount || 0)}\n`;
+      text += `${num}. <b>${v.title}</b> — Views: ${formatCount((v as any).viewCount || 0)}\n`;
 
       const btn = Markup.button.callback(`🎬 ${num}`, `vid_${v.id}`);
       if (i < 5) {
@@ -375,7 +375,7 @@ bot.command('search', async (ctx: any) => {
     let text = `🔍 <b>Found ${matches.length} video(s) matching "${query}":</b>\n\n`;
     const numberRow: any[] = [];
     matches.forEach((v, i) => {
-      text += `${i + 1}. <b>${v.title}</b> — 👁️ ${formatCount(v.viewCount)}\n`;
+      text += `${i + 1}. <b>${v.title}</b> — Views: ${formatCount((v as any).viewCount || 0)}\n`;
       numberRow.push(Markup.button.callback(`🎬 ${i + 1}`, `vid_${v.id}`));
     });
 
@@ -395,7 +395,7 @@ bot.action(/^vid_(.+)$/, async (ctx) => {
   const vAny = video as any;
   const text =
     `🎬 <b>${video.title}</b>\n\n` +
-    `👁️ <b>Views:</b> ${formatCount(vAny.viewCount || 0)}\n` +
+    `<b>Views:</b> ${formatCount(vAny.viewCount || 0)}\n` +
     `👍 <b>Likes:</b> ${formatCount(vAny.likeCount || 0)}\n` +
     `💬 <b>Comments:</b> ${formatCount(vAny.commentCount || 0)}\n\n` +
     `🏷️ <b>Tags:</b> ${video.tags.slice(0, 5).join(', ') || 'No tags'}\n\n` +
