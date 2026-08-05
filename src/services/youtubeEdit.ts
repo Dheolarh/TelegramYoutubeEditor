@@ -238,3 +238,18 @@ export const replyToComment = async (
     }
   );
 };
+
+/**
+ * Delete a profane/toxic comment from YouTube via YouTube Comments API (HTTP DELETE).
+ */
+export const deleteYouTubeComment = async (
+  userId: string,
+  commentId: string
+): Promise<void> => {
+  const accessToken = await getValidAccessToken(userId);
+
+  await axios.delete('https://www.googleapis.com/youtube/v3/comments', {
+    params: { id: commentId },
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+};

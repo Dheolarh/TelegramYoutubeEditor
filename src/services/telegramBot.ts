@@ -22,6 +22,7 @@ import {
 import { getGoogleAuthUrl } from './youtubeAuth';
 import { runLiveModeScanner, suggestionCacheMap } from './liveModeCron';
 import { fetchChannelAnalytics } from './youtubeAnalytics';
+import { runCommentModerationScanner } from './commentModerationCron';
 
 
 dotenv.config();
@@ -159,6 +160,7 @@ const handleHelpCommand = async (ctx: any) => {
     `• <b>/analytics</b> - Real-time channel analytics, CTR &amp; demographics\n` +
     `• <b>/search &lt;keyword&gt;</b> - Search your videos by title\n` +
     `• <b>/livemode</b> - Real-time YouTube trend &amp; post suggestion engine\n` +
+    `• <b>/moderation</b> - Automated profanity &amp; spam comment cleaner\n` +
     `• <b>/help</b> - Show this help menu\n\n` +
     `<b>Available Video Features:</b>\n` +
     `✏️ Edit Titles, Descriptions &amp; Tags\n` +
@@ -166,19 +168,79 @@ const handleHelpCommand = async (ctx: any) => {
     `💬 View &amp; Reply to top comments\n` +
     `🤖 AI-Powered Metadata Optimization (Gemini / DeepSeek)\n` +
     `📊 YouTube Analytics API v2 Dashboard\n` +
-    `⚡ Live Mode Automated Trend Scanner`;
+    `⚡ Live Mode Automated Trend Scanner\n` +
+    `🛡️ Automated Comment Moderation Engine`;
 
   await ctx.reply(text, {
     parse_mode: 'HTML',
     ...Markup.inlineKeyboard([
       [Markup.button.callback('📹 Browse Videos', 'cmd_videos'), Markup.button.callback('📊 Analytics', 'cmd_analytics')],
-      [Markup.button.callback('⚡ Live Mode', 'cmd_livemode'), Markup.button.callback('🏠 Back to Start', 'cmd_start')],
+      [Markup.button.callback('⚡ Live Mode', 'cmd_livemode'), Markup.button.callback('🛡️ Moderation', 'cmd_moderation')],
+      [Markup.button.callback('🏠 Back to Start', 'cmd_start')],
     ]),
   });
 };
 
 bot.command('help', handleHelpCommand);
 bot.action('cmd_help', async (ctx) => { await ctx.answerCbQuery(); await handleHelpCommand(ctx); });
+
+// ── /moderation (Automated Profanity & Spam Comment Cleaner) ──────────────────
+const handleModerationCommand = async (ctx: any) => {
+  const telegramChatId = ctx.from.id.toString();
+  const connData = await getConnectedChannel(telegramChatId);
+
+  if (!connData) {
+    return ctx.reply('⚠️ <b>Connect your YouTube channel via /start first.</b>', { parse_mode: 'HTML' });
+  }
+
+  const user = await prisma.user.findUnique({ where: { telegramChatId } });
+  const isEnabled = (user as any)?.commentModerationEnabled || false;
+
+  const text = isEnabled
+    ? `🛡️ <b>AUTOMATED COMMENT MODERATION ENABLED</b> 🟢\n\n` +
+      `The bot is actively scanning your YouTube video comments in the background and automatically deleting profanity, toxic hate speech, and spam links.\n\n` +
+      `<i>Status: Active (Scanning YouTube comments periodically)</i>`
+    : `🛡️ <b>AUTOMATED COMMENT MODERATION DISABLED</b> 🔴\n\n` +
+      `Automated comment moderation is currently turned off.\n\n` +
+      `Turn ON Comment Moderation to automatically clean profanity, toxic comments, and spam links from your YouTube channel!`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [
+      isEnabled
+        ? Markup.button.callback('🔴 Turn OFF Moderation', 'cmd_mod_toggle')
+        : Markup.button.callback('🟢 Turn ON Moderation', 'cmd_mod_toggle'),
+    ],
+    [Markup.button.callback('⚡ Scan Comments Now', 'cmd_mod_scan')],
+    [Markup.button.callback('🏠 Back to Start', 'cmd_start')],
+  ]);
+
+  await ctx.reply(text, { parse_mode: 'HTML', ...keyboard });
+};
+
+bot.command('moderation', handleModerationCommand);
+bot.action('cmd_moderation', async (ctx) => { await ctx.answerCbQuery(); await handleModerationCommand(ctx); });
+
+bot.action('cmd_mod_toggle', async (ctx: any) => {
+  await ctx.answerCbQuery();
+  const telegramChatId = ctx.from.id.toString();
+  const user = await prisma.user.findUnique({ where: { telegramChatId } });
+  if (!user) return;
+
+  const newStatus = !(user as any).commentModerationEnabled;
+  await prisma.user.update({
+    where: { telegramChatId },
+    data: { commentModerationEnabled: newStatus } as any,
+  });
+
+  await handleModerationCommand(ctx);
+});
+
+bot.action('cmd_mod_scan', async (ctx: any) => {
+  await ctx.answerCbQuery();
+  const telegramChatId = ctx.from.id.toString();
+  await ctx.reply('🛡️ <b>Scanning your YouTube comments for profanity & spam...</b>', { parse_mode: 'HTML' });
+  await runCommentModerationScanner(telegramChatId);
+});
 
 // ── /analytics (YouTube Analytics API v2 Dashboard) ───────────────────────────
 const handleAnalyticsCommand = async (ctx: any, days: number = 30, isEdit: boolean = false) => {

@@ -5,6 +5,7 @@ import { initTelegramBot, bot } from './services/telegramBot';
 import { authRouter } from './routes/auth';
 import { runTrendAlertScanner } from './services/trendCron';
 import { runLiveModeScanner } from './services/liveModeCron';
+import { runCommentModerationScanner } from './services/commentModerationCron';
 
 dotenv.config();
 
@@ -48,13 +49,14 @@ app.listen(PORT, async () => {
   // Launch Telegram Bot (Webhook on Production HTTPS, Polling on Local HTTP)
   await initTelegramBot(publicUrl);
 
-  // Schedule Proactive Trend Alert Scanner & Live Mode Scanner
+  // Schedule Background Scanners (Every LIVE_MODE_INTERVAL_HOURS)
   const liveModeHours = Number(process.env.LIVE_MODE_INTERVAL_HOURS) || 6;
   const LIVE_MODE_INTERVAL_MS = liveModeHours * 60 * 60 * 1000;
-  console.log(`⏱️ Live Mode scanner scheduled to run every ${liveModeHours} hour(s)`);
+  console.log(`⏱️ Scanners (Trends, Live Mode, Comment Moderation) scheduled every ${liveModeHours} hour(s)`);
 
   setInterval(runTrendAlertScanner, LIVE_MODE_INTERVAL_MS);
   setInterval(runLiveModeScanner, LIVE_MODE_INTERVAL_MS);
+  setInterval(runCommentModerationScanner, LIVE_MODE_INTERVAL_MS);
 });
 
 // Graceful Shutdown
