@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id              String           @id @default(uuid())
+  telegramChatId  String           @unique @map("telegram_chat_id")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  youtubeAccounts YouTubeAccount[]
+  channels        Channel[]
+
+  @@map("users")
+}
+
+model YouTubeAccount {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  channelId    String   @map("channel_id")
+  accessToken  String   @map("access_token")
+  refreshToken String   @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("youtube_accounts")
+}
+
+model Channel {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  youtubeChannelId String   @unique @map("youtube_channel_id")
+  title            String
+  description      String?  @db.Text
+  subscriberCount  Int      @default(0) @map("subscriber_count")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videos Video[]
+
+  @@map("channels")
+}
+
+model Video {
+  id             String    @id @default(uuid())
+  channelId      String    @map("channel_id")
+  youtubeVideoId String    @unique @map("youtube_video_id")
+  title          String
+  description    String?   @db.Text
+  tags           String[]  @default([])
+  thumbnailUrl   String?   @map("thumbnail_url")
+  duration       String?
+  isShort        Boolean   @default(false) @map("is_short")
+  publishedAt    DateTime? @map("published_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  channel  Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@map("videos")
+}
+
+model Comment {
+  id               String   @id @default(uuid())
+  videoId          String   @map("video_id")
+  youtubeCommentId String   @unique @map("youtube_comment_id")
+  authorName       String   @map("author_name")
+  textDisplay      String   @map("text_display") @db.Text
+  publishedAt      DateTime @map("published_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
