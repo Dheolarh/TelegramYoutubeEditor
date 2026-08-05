@@ -249,11 +249,16 @@ export const generateAIThumbnail = async (
   currentThumbnailUrl?: string
 ): Promise<string> => {
   // Step 1: Analyze thumbnail concept using Text AI (with 6s timeout)
+  const isUpgrade = Boolean(currentThumbnailUrl && currentThumbnailUrl.startsWith('http'));
+
   const promptAnalysis = `You are a professional YouTube Thumbnail Creative Director.
-Create an image generation prompt for a high-CTR YouTube thumbnail for the video titled "${title}".
+Video Title: "${title}"
+${isUpgrade ? `Existing Thumbnail URL: ${currentThumbnailUrl}` : ''}
+
+GOAL: ${isUpgrade ? `Remaster & upgrade the existing thumbnail into a high-CTR 4k visual` : `Create a new high-CTR thumbnail prompt for "${title}"`}.
 
 IMPORTANT RULES:
-- Focus DIRECTLY on objects, gaming visuals, tech graphics, background scenery, or concepts relevant to "${title}".
+- ${isUpgrade ? `Preserve the core subject/theme of the existing thumbnail while upgrading contrast, lighting, 3D text overlay, and focal sharpness.` : `Focus DIRECTLY on objects, gaming visuals, tech graphics, background scenery, or concepts relevant to "${title}".`}
 - Do NOT request random human portraits or faces unless the video title is explicitly about a specific human subject.
 - Keep the description focused on 3D graphics, bold colors, dramatic lighting, and clear focal objects.
 
@@ -263,11 +268,15 @@ Respond with ONLY a concise 1-sentence visual description.`;
   try {
     visualPrompt = await withTimeout(runTextAIWithFallback(promptAnalysis), 6000, 'Visual prompt timeout');
   } catch (err) {
-    visualPrompt = `3D graphic cover illustration representing ${title}`;
+    visualPrompt = isUpgrade
+      ? `Upgraded remastered 3D visual cover of ${title} with high contrast and vibrant lighting`
+      : `3D graphic cover illustration representing ${title}`;
   }
 
-  // Put video title FRONT AND CENTER in the image prompt
-  const enhancedPrompt = `${title} YouTube thumbnail, ${visualPrompt}, vibrant colors, 16:9 wide aspect ratio, bold contrast, professional lighting, 4k quality cover art`;
+  // Put video title FRONT AND CENTER + Remaster context in the image prompt
+  const enhancedPrompt = isUpgrade
+    ? `Remastered upgraded YouTube thumbnail for ${title}, ${visualPrompt}, vibrant high-contrast 3D graphics, 16:9 wide aspect ratio, dramatic lighting, 4k high CTR cover art`
+    : `${title} YouTube thumbnail, ${visualPrompt}, vibrant colors, 16:9 wide aspect ratio, bold contrast, professional lighting, 4k quality cover art`;
 
   // Step 2: Image Generation with Fallback (OpenAI DALL-E 3 -> Google Imagen 3 -> Pollinations)
 
