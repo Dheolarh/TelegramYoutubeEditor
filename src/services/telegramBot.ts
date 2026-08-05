@@ -169,43 +169,105 @@ bot.command('help', handleHelpCommand);
 bot.action('cmd_help', async (ctx) => { await ctx.answerCbQuery(); await handleHelpCommand(ctx); });
 
 
-// ── /videos ───────────────────────────────────────────────────────────────────
-const handleVideosCommand = async (ctx: any) => {
+// ── /videos (Paginated Video Listing) ─────────────────────────────────────────
+const VIDEOS_PER_PAGE = 10;
+
+const renderVideoList = async (ctx: any, page: number = 1, isEdit: boolean = false) => {
   const telegramChatId = ctx.from.id.toString();
   const connData = await getConnectedChannel(telegramChatId);
 
   if (!connData) {
-    return ctx.reply(
-      '⚠️ <b>No YouTube channel connected yet.</b>\n\nConnect via /start.',
-      { parse_mode: 'HTML' }
-    );
+    const msg = '⚠️ <b>No YouTube channel connected yet.</b>\n\nConnect via /start.';
+    return isEdit
+      ? ctx.editMessageText(msg, { parse_mode: 'HTML' })
+      : ctx.reply(msg, { parse_mode: 'HTML' });
   }
 
-  await ctx.reply('⏳ <b>Fetching your recent videos...</b>', { parse_mode: 'HTML' });
-
   try {
-    const videos = await fetchRecentVideos(connData.user.id, connData.channel.youtubeChannelId, 5);
-    if (videos.length === 0) {
-      return ctx.reply('📹 <b>No videos found.</b>', { parse_mode: 'HTML' });
+    // Fetch up to 30 recent videos to support pagination
+    const allVideos = await fetchRecentVideos(connData.user.id, connData.channel.youtubeChannelId, 30);
+
+    if (allVideos.length === 0) {
+      const msg = '📹 <b>No videos found on this channel.</b>';
+      return isEdit
+        ? ctx.editMessageText(msg, { parse_mode: 'HTML' })
+        : ctx.reply(msg, { parse_mode: 'HTML' });
     }
 
-    let text = `📹 <b>Your Recent YouTube Videos:</b>\n\n`;
-    const buttons: any[] = [];
+    const totalPages = Math.ceil(allVideos.length / VIDEOS_PER_PAGE);
+    const currentPage = Math.max(1, Math.min(page, totalPages));
 
-    videos.forEach((v, i) => {
-      text += `${i + 1}. <b>${v.title}</b> (${v.isShort ? '⚡ Short' : '🎥 Video'})\n`;
-      buttons.push([Markup.button.callback(`🎬 ${i + 1}. ${v.title.slice(0, 30)}`, `vid_${v.id}`)]);
+    const startIndex = (currentPage - 1) * VIDEOS_PER_PAGE;
+    const pageVideos = allVideos.slice(startIndex, startIndex + VIDEOS_PER_PAGE);
+
+    let text = `📹 <b>Here are your most recent YouTube videos (Page ${currentPage}/${totalPages}):</b>\n\n`;
+
+    const numberRow1: any[] = [];
+    const numberRow2: any[] = [];
+
+    pageVideos.forEach((v, i) => {
+      const num = startIndex + i + 1;
+      text += `${num}. <b>${v.title}</b> (${v.isShort ? '⚡ Short' : '🎥 Video'})\n`;
+
+      const btn = Markup.button.callback(`🎬 ${num}`, `vid_${v.id}`);
+      if (i < 5) {
+        numberRow1.push(btn);
+      } else {
+        numberRow2.push(btn);
+      }
     });
 
-    text += `\n<b>Tap a video below to manage it:</b>`;
-    await ctx.reply(text, { parse_mode: 'HTML', ...Markup.inlineKeyboard(buttons) });
+    text += `\n<b>Tap a video number below to manage it:</b>`;
+
+    // Navigation buttons row
+    const navRow: any[] = [];
+    if (currentPage > 1) {
+      navRow.push(Markup.button.callback('⬅️ Prev', `vpage_${currentPage - 1}`));
+    }
+    if (currentPage < totalPages) {
+      navRow.push(Markup.button.callback('➡️ Next', `vpage_${currentPage + 1}`));
+    }
+
+    const inlineButtons: any[] = [];
+    if (numberRow1.length > 0) inlineButtons.push(numberRow1);
+    if (numberRow2.length > 0) inlineButtons.push(numberRow2);
+    if (navRow.length > 0) inlineButtons.push(navRow);
+
+    const extra = {
+      parse_mode: 'HTML',
+      ...Markup.inlineKeyboard(inlineButtons),
+    };
+
+    if (isEdit) {
+      await ctx.editMessageText(text, extra);
+    } else {
+      await ctx.reply(text, extra);
+    }
   } catch (err: any) {
-    await ctx.reply(`❌ <b>Error:</b> ${err.message}`, { parse_mode: 'HTML' });
+    const msg = `❌ <b>Error:</b> ${err.message}`;
+    if (isEdit) {
+      await ctx.editMessageText(msg, { parse_mode: 'HTML' });
+    } else {
+      await ctx.reply(msg, { parse_mode: 'HTML' });
+    }
   }
 };
 
-bot.command('videos', handleVideosCommand);
-bot.action('cmd_videos', async (ctx) => { await ctx.answerCbQuery(); await handleVideosCommand(ctx); });
+bot.command('videos', async (ctx: any) => {
+  await ctx.reply('⏳ <b>Fetching your recent videos...</b>', { parse_mode: 'HTML' });
+  await renderVideoList(ctx, 1, false);
+});
+
+bot.action('cmd_videos', async (ctx: any) => {
+  await ctx.answerCbQuery();
+  await renderVideoList(ctx, 1, false);
+});
+
+bot.action(/^vpage_(\d+)$/, async (ctx: any) => {
+  await ctx.answerCbQuery();
+  const page = parseInt(ctx.match[1], 10);
+  await renderVideoList(ctx, page, true);
+});
 
 // ── /search ───────────────────────────────────────────────────────────────────
 bot.command('search', async (ctx: any) => {
@@ -221,13 +283,14 @@ bot.command('search', async (ctx: any) => {
     if (matches.length === 0) return ctx.reply(`🔍 <b>No videos matching "${query}".</b>`, { parse_mode: 'HTML' });
 
     let text = `🔍 <b>Found ${matches.length} video(s) matching "${query}":</b>\n\n`;
-    const buttons: any[] = [];
+    const numberRow: any[] = [];
     matches.forEach((v, i) => {
-      text += `${i + 1}. <b>${v.title}</b>\n`;
-      buttons.push([Markup.button.callback(`🎬 ${i + 1}. ${v.title.slice(0, 30)}`, `vid_${v.id}`)]);
+      text += `${i + 1}. <b>${v.title}</b> (${v.isShort ? '⚡ Short' : '🎥 Video'})\n`;
+      numberRow.push(Markup.button.callback(`🎬 ${i + 1}`, `vid_${v.id}`));
     });
 
-    await ctx.reply(text, { parse_mode: 'HTML', ...Markup.inlineKeyboard(buttons) });
+    text += `\n<b>Tap a video number below to manage it:</b>`;
+    await ctx.reply(text, { parse_mode: 'HTML', ...Markup.inlineKeyboard([numberRow]) });
   } catch (err: any) {
     await ctx.reply(`❌ <b>Search error:</b> ${err.message}`, { parse_mode: 'HTML' });
   }
