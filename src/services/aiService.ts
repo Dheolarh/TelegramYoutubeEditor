@@ -249,54 +249,38 @@ export const generateAIThumbnail = async (
   currentThumbnailUrl?: string,
   customInstructions?: string
 ): Promise<string> => {
-  // Step 1: Analyze thumbnail concept using Text AI (with 6s timeout)
+  // Step 1: Use Text AI to create a clean, hyper-focused image generation prompt
   const isUpgrade = Boolean(currentThumbnailUrl && currentThumbnailUrl.startsWith('http'));
 
   const promptAnalysis = `You are a professional YouTube Thumbnail Creative Director.
 Video Title: "${title}"
 ${isUpgrade ? `Existing Thumbnail URL: ${currentThumbnailUrl}` : ''}
-${customInstructions ? `User Custom Guidance / Reference Instructions: "${customInstructions}"` : ''}
+${customInstructions ? `User Requested Edit: "${customInstructions}"` : ''}
 
-GOAL: ${
-    customInstructions
-      ? `Create a customized high-CTR 4k thumbnail for "${title}" strictly following user guidance: "${customInstructions}"`
-      : isUpgrade
-      ? `Remaster & upgrade the existing thumbnail into a high-CTR 4k visual`
-      : `Create a new high-CTR thumbnail prompt for "${title}"`
-  }.
+TASK: Convert the title and requested edit into a crisp, ultra-specific AI image prompt for a 16:9 YouTube thumbnail.
 
-IMPORTANT RULES:
-- ${
-    customInstructions
-      ? `Incorporate all user custom requested text, visual elements, colors, and layout instructions.`
-      : isUpgrade
-      ? `Preserve the core subject/theme of the existing thumbnail while upgrading contrast, lighting, 3D text overlay, and focal sharpness.`
-      : `Focus DIRECTLY on objects, gaming visuals, tech graphics, background scenery, or concepts relevant to "${title}".`
-  }
-- Do NOT request random human portraits or faces unless specified.
-- Keep the description focused on 3D graphics, bold colors, dramatic lighting, and clear focal objects.
+CRITICAL RULES:
+- Focus 100% on the core subject specified by the user (e.g. if Jude Bellingham or FC 26 is requested, specify "Jude Bellingham in football jersey, EA Sports FC 26 splash screen, stadium lights").
+- Strip out conversational phrases like "Change the picture to", "Can you make", "Make it look like".
+- If a sports, gaming, tech, or specific personality subject is requested, explicitly detail that specific character, game, or scene.
+- ABSOLUTELY NO generic female portraits or unrelated faces unless explicitly requested by name.
+- Keep the prompt under 45 words focusing on: Subject, Visual Style, Lighting, and 16:9 Aspect Ratio.
 
-Respond with ONLY a concise 1-sentence visual description.`;
+Respond with ONLY the raw image generation prompt string (no markdown, no quotes).`;
 
-  let visualPrompt = '';
+  let cleanImagePrompt = '';
   try {
-    visualPrompt = await withTimeout(runTextAIWithFallback(promptAnalysis), 6000, 'Visual prompt timeout');
+    cleanImagePrompt = await withTimeout(runTextAIWithFallback(promptAnalysis), 6000, 'Visual prompt timeout');
   } catch (err) {
-    visualPrompt = customInstructions
-      ? `Custom visual cover of ${title} with ${customInstructions}`
-      : isUpgrade
-      ? `Upgraded remastered 3D visual cover of ${title} with high contrast and vibrant lighting`
-      : `3D graphic cover illustration representing ${title}`;
+    cleanImagePrompt = customInstructions
+      ? `${title}, ${customInstructions}, 3D gaming cover art, 16:9 YouTube thumbnail`
+      : `${title} 3D gaming cover illustration, 16:9 YouTube thumbnail`;
   }
 
-  // Put video title FRONT AND CENTER + Remaster/Custom context in the image prompt
-  const enhancedPrompt = customInstructions
-    ? `${title} YouTube thumbnail banner, ${customInstructions}, ${visualPrompt}, vibrant high-contrast 3D graphics, 16:9 wide aspect ratio, 4k cover art`
-    : isUpgrade
-    ? `Remastered upgraded YouTube thumbnail for ${title}, ${visualPrompt}, vibrant high-contrast 3D graphics, 16:9 wide aspect ratio, dramatic lighting, 4k high CTR cover art`
-    : `${title} YouTube thumbnail, ${visualPrompt}, vibrant colors, 16:9 wide aspect ratio, bold contrast, professional lighting, 4k quality cover art`;
+  // Ensure high quality YouTube thumbnail styling keywords are attached
+  const enhancedPrompt = `${cleanImagePrompt}, 16:9 wide aspect ratio, high CTR YouTube cover art, 4k resolution, cinematic lighting, sharp detail, no random portraits`;
 
-  // Step 2: Image Generation with Fallback (OpenAI DALL-E 3 -> Google Imagen 3 -> Pollinations)
+  // Step 2: Image Generation with Fallback (OpenAI DALL-E 3 -> Google Imagen 3 -> Pollinations FLUX)
 
   // Attempt A: OpenAI DALL-E 3
   if (process.env.OPENAI_API_KEY) {
@@ -340,15 +324,15 @@ Respond with ONLY a concise 1-sentence visual description.`;
         return `data:image/jpeg;base64,${base64Image}`;
       }
     } catch (err: any) {
-      console.warn(`⚠️ Google Imagen 3 failed: ${err.message}. Trying Pollinations fallback...`);
+      console.warn(`⚠️ Google Imagen 3 failed: ${err.message}. Trying Pollinations FLUX fallback...`);
     }
   }
 
-  // Attempt C: Fast Pollinations AI Image Endpoint (Using full topic prompt)
-  console.log('🎨 Generating thumbnail with Pollinations AI...');
+  // Attempt C: Fast Pollinations FLUX AI Model with Prompt Enhancement
+  console.log('🎨 Generating thumbnail with Pollinations FLUX AI...');
   const encodedPrompt = encodeURIComponent(enhancedPrompt);
-  const seed = Math.floor(Math.random() * 90000) + 10000;
-  return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&seed=${seed}`;
+  const seed = Math.floor(Math.random() * 900000) + 100000;
+  return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&enhance=true&model=flux&seed=${seed}`;
 };
 
 export interface AIContentSuggestion {
