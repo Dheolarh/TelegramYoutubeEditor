@@ -21,7 +21,7 @@ import {
   generateAIThumbnail,
 } from './aiService';
 import { getGoogleAuthUrl } from './youtubeAuth';
-import { runLiveModeScanner, suggestionCacheMap } from './liveModeCron';
+import { runLiveModeScanner } from './liveModeCron';
 import { fetchChannelAnalytics } from './youtubeAnalytics';
 import { runCommentModerationScanner } from './commentModerationCron';
 

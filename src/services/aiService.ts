@@ -408,3 +408,60 @@ Respond STRICTLY in JSON format:
     trendReason,
   };
 };
+
+export interface TrendDigestItem {
+  topic: string;
+  trendReason: string;
+  videoIdea: string;
+  keywords: string[];
+}
+
+/**
+ * AI Trend Intelligence Digest Generator.
+ * Verifies raw trends & viewer autocomplete queries and generates a list of top 3 confirmed trend/news topics.
+ */
+export const generateAITrendDigest = async (
+  rawTrends: { title: string; snippet: string; keywords: string[] }[],
+  niche: string = 'Gaming'
+): Promise<TrendDigestItem[]> => {
+  const yr = new Date().getFullYear();
+
+  const prompt = `You are an expert YouTube Market Intelligence Analyst.
+CRITICAL SYSTEM CONTEXT: The current calendar year is dynamically evaluated as ${yr}. Always use the active current year (which is ${yr}) and NEVER use past years for any year references!
+
+Analyze these real-time YouTube search trends & viewer autocomplete queries in the "${niche}" niche:
+${JSON.stringify(rawTrends)}
+
+TASK:
+1. Verify and make sense out of these raw trends/news topics.
+2. Select the top 3 most valuable, high-potential trend/news topics for a creator in this niche.
+3. For each trend topic, provide a clear explanation of why it is trending, a viral video title idea, and 3-5 high-volume search keywords.
+
+Respond STRICTLY in JSON format as an array of 3 objects:
+[
+  {
+    "topic": "Clean Name of Verified Trend or News Topic",
+    "trendReason": "Why this topic is gaining traction right now based on viewer search intent...",
+    "videoIdea": "Clickworthy 4k Video Title Idea",
+    "keywords": ["tag1", "tag2", "tag3", "tag4"]
+  }
+]`;
+
+  try {
+    const rawJson = await runTextAIWithFallback(prompt);
+    const parsed = JSON.parse(rawJson.replace(/```json|```/g, '').trim());
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed;
+    }
+  } catch (err: any) {
+    console.warn('⚠️ AI Trend Digest generation error:', err.message);
+  }
+
+  // Fallback digest items
+  return rawTrends.slice(0, 3).map((t) => ({
+    topic: t.title,
+    trendReason: `High viewer search interest in ${niche} topics.`,
+    videoIdea: `How to Master ${t.title} (${yr} Edition)`,
+    keywords: t.keywords.slice(0, 4),
+  }));
+};

@@ -1,15 +1,11 @@
 import { prisma } from '../config/db';
 import { bot } from './telegramBot';
-import axios from 'axios';
 import { fetchYouTubeNicheTrends } from './youtubeTrendsService';
-import { generateAIContentSuggestion, AIContentSuggestion } from './aiService';
+import { generateAITrendDigest } from './aiService';
 import { Markup } from 'telegraf';
 
-// Transient cache of generated suggestions: Key = suggestionId
-export const suggestionCacheMap = new Map<string, AIContentSuggestion>();
-
 /**
- * Execute Live Mode trend scan & dispatch post suggestions to active Live Mode users.
+ * Execute Live Mode trend scan & dispatch verified trend news digest to active Live Mode users.
  */
 export const runLiveModeScanner = async (specificChatId?: string): Promise<void> => {
   console.log('📡 Running Live Mode YouTube trend scanner...');
@@ -29,52 +25,44 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
 
       console.log(`🔍 Live Mode scanning trends for channel "${channel.title}"...`);
 
-      // 1. Fetch YouTube-specific niche trends & autocomplete keywords
+      // 1. Fetch YouTube-specific niche trends & autocomplete search keywords
       const trends = await fetchYouTubeNicheTrends(user.id, nicheQuery);
       if (trends.length === 0) continue;
 
-      const topTrend = trends[0];
+      // 2. Pass raw trends to AI for verification & market intelligence digest
+      const digestItems = await generateAITrendDigest(
+        trends.map((t) => ({ title: t.title, snippet: t.snippet, keywords: t.keywords })),
+        nicheQuery
+      );
 
-      // 2. Generate complete video suggestion via AI
-      const suggestion = await generateAIContentSuggestion(topTrend.title, topTrend.keywords, nicheQuery);
+      // 3. Format clean text digest
+      let digestText =
+        `⚡ <b>LIVE MODE: Verified Niche Trends &amp; News Digest</b>\n` +
+        `Channel: <b>${channel.title}</b>\n\n` +
+        `🔥 <b>Top Confirmed Market Trends &amp; News:</b>\n\n`;
 
-      const sugId = `sug_${Date.now()}`;
-      suggestionCacheMap.set(sugId, suggestion);
+      digestItems.forEach((item, index) => {
+        digestText +=
+          `${index + 1}. 🔥 <b>${item.topic}</b>\n` +
+          `• <b>Why it's trending:</b> ${item.trendReason}\n` +
+          `• 💡 <b>Video Idea:</b> <i>"${item.videoIdea}"</i>\n` +
+          `• 🏷️ <b>Keywords:</b> <code>${item.keywords.join(', ')}</code>\n\n`;
+      });
 
-      // 3. Dispatch Post Suggestion Card to Telegram
-      const caption =
-        `⚡ <b>LIVE MODE: New YouTube Video Concept Found!</b>\n\n` +
-        `🔥 <b>Trending Topic:</b> ${topTrend.title}\n` +
-        `💡 <b>Why it's trending:</b> ${suggestion.trendReason}\n\n` +
-        `🎬 <b>Suggested Video Title:</b>\n"${suggestion.title}"\n\n` +
-        `📝 <b>Suggested Description Hook:</b>\n${suggestion.description}\n\n` +
-        `🏷️ <b>High-Volume YouTube Tags:</b>\n<code>${suggestion.tags.join(', ')}</code>`;
+      digestText += `<i>Tap ⚡ Trigger Instant Scan to refresh trends anytime!</i>`;
 
       const keyboard = Markup.inlineKeyboard([
         [
-          Markup.button.callback('📌 Save Suggestion', `save_${sugId}`),
-          Markup.button.callback('🔄 Regenerate', `regen_${sugId}`),
-          Markup.button.callback('❌ Dismiss', `dismiss_${sugId}`),
+          Markup.button.callback('⚡ Trigger Instant Scan', 'cmd_live_scan'),
+          Markup.button.callback('🏠 Back to Start', 'cmd_start'),
         ],
       ]);
 
       try {
-        if (suggestion.thumbnailUrl.startsWith('data:image')) {
-          const base64Data = suggestion.thumbnailUrl.split(',')[1];
-          const buffer = Buffer.from(base64Data, 'base64');
-          await bot.telegram.sendPhoto(user.telegramChatId, { source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
-        } else {
-          try {
-            const imgRes = await axios.get(suggestion.thumbnailUrl, { responseType: 'arraybuffer', timeout: 7000 });
-            const buffer = Buffer.from(imgRes.data);
-            await bot.telegram.sendPhoto(user.telegramChatId, { source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
-          } catch (e) {
-            await bot.telegram.sendMessage(user.telegramChatId, caption, { parse_mode: 'HTML', ...keyboard });
-          }
-        }
-        console.log(`✅ Live Mode post suggestion sent to user ${user.telegramChatId}`);
+        await bot.telegram.sendMessage(user.telegramChatId, digestText, { parse_mode: 'HTML', ...keyboard });
+        console.log(`✅ Live Mode trend digest sent to user ${user.telegramChatId}`);
       } catch (tgErr: any) {
-        console.warn(`⚠️ Could not send Live Mode suggestion to Telegram:`, tgErr.message);
+        console.warn(`⚠️ Could not send Live Mode trend digest to Telegram:`, tgErr.message);
       }
 
       await new Promise((r) => setTimeout(r, 250)); // Rate limit buffer
