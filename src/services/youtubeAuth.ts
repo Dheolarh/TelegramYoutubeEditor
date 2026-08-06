@@ -40,13 +40,17 @@ export const exchangeCodeForTokens = async (code: string): Promise<OAuthTokens> 
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
   const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/auth/google/callback';
 
-  const response = await axios.post('https://oauth2.googleapis.com/token', {
-    code,
-    client_id: clientId,
-    client_secret: clientSecret,
-    redirect_uri: redirectUri,
-    grant_type: 'authorization_code',
-  });
+  const response = await axios.post(
+    'https://oauth2.googleapis.com/token',
+    {
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+    },
+    { timeout: 8000 }
+  );
 
   return {
     accessToken: response.data.access_token,
@@ -62,12 +66,16 @@ export const refreshAccessToken = async (refreshToken: string): Promise<{ access
   const clientId = process.env.GOOGLE_CLIENT_ID || '';
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
 
-  const response = await axios.post('https://oauth2.googleapis.com/token', {
-    client_id: clientId,
-    client_secret: clientSecret,
-    refresh_token: refreshToken,
-    grant_type: 'refresh_token',
-  });
+  const response = await axios.post(
+    'https://oauth2.googleapis.com/token',
+    {
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    },
+    { timeout: 8000 }
+  );
 
   return {
     accessToken: response.data.access_token,
