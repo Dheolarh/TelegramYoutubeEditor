@@ -429,7 +429,7 @@ const renderVideoList = async (ctx: any, page: number = 1, isEdit: boolean = fal
 
     pageVideos.forEach((v, i) => {
       const num = startIndex + i + 1;
-      text += `${num}. <b>${v.title}</b> — Views: ${formatCount((v as any).viewCount || 0)}\n`;
+      text += `${num}. <b>${v.title}</b> — Views: ${formatCount((v as any).viewCount || 0)}\n\n`;
 
       const btn = Markup.button.callback(`🎬 ${num}`, `vid_${v.id}`);
       if (i < 5) {
