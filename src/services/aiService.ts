@@ -257,10 +257,14 @@ Video Title: "${title}"
 ${isUpgrade ? `Existing Thumbnail URL: ${currentThumbnailUrl}` : ''}
 ${customInstructions ? `User Requested Edit: "${customInstructions}"` : ''}
 
-TASK: Convert the title and requested edit into a crisp, ultra-specific AI image prompt for a 16:9 YouTube thumbnail.
+TASK: Convert the title, existing thumbnail context, and requested edit into a crisp, ultra-specific AI image prompt for a 16:9 YouTube thumbnail.
 
 CRITICAL RULES:
-- Focus 100% on the core subject specified by the user (e.g. if Jude Bellingham or FC 26 is requested, specify "Jude Bellingham in football jersey, EA Sports FC 26 splash screen, stadium lights").
+${
+  isUpgrade && !customInstructions
+    ? `- STRICT THUMBNAIL REMASTER RULE: The video already has an existing thumbnail ("${currentThumbnailUrl}"). DO NOT deviate from the core visual theme, game/sport, or subject! Remaster the existing thumbnail style by enhancing 3D contrast, saturation, lighting, and focal clarity while preserving the original subject matter.`
+    : `- Focus 100% on the core subject specified by the user or video title.`
+}
 - Strip out conversational phrases like "Change the picture to", "Can you make", "Make it look like".
 - If a sports, gaming, tech, or specific personality subject is requested, explicitly detail that specific character, game, or scene.
 - ABSOLUTELY NO generic female portraits or unrelated faces unless explicitly requested by name.
@@ -274,11 +278,15 @@ Respond with ONLY the raw image generation prompt string (no markdown, no quotes
   } catch (err) {
     cleanImagePrompt = customInstructions
       ? `${title}, ${customInstructions}, 3D gaming cover art, 16:9 YouTube thumbnail`
+      : isUpgrade
+      ? `Remastered upgraded version of existing ${title} thumbnail, high contrast 3D graphics`
       : `${title} 3D gaming cover illustration, 16:9 YouTube thumbnail`;
   }
 
   // Ensure high quality YouTube thumbnail styling keywords are attached
-  const enhancedPrompt = `${cleanImagePrompt}, 16:9 wide aspect ratio, high CTR YouTube cover art, 4k resolution, cinematic lighting, sharp detail, no random portraits`;
+  const enhancedPrompt = isUpgrade && !customInstructions
+    ? `Remastered upgraded YouTube thumbnail based on original cover for ${title}, ${cleanImagePrompt}, 16:9 wide aspect ratio, high CTR cover art, 4k resolution, cinematic lighting, sharp detail`
+    : `${cleanImagePrompt}, 16:9 wide aspect ratio, high CTR YouTube cover art, 4k resolution, cinematic lighting, sharp detail, no random portraits`;
 
   // Step 2: Image Generation with Fallback (OpenAI DALL-E 3 -> Google Imagen 3 -> Pollinations FLUX)
 
