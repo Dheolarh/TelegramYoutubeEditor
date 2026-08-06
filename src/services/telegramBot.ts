@@ -364,7 +364,7 @@ bot.action('cmd_live_toggle', async (ctx: any) => {
 bot.action('cmd_live_scan', async (ctx: any) => {
   await ctx.answerCbQuery();
   const telegramChatId = ctx.from.id.toString();
-  await ctx.reply('⚡ <b>Scanning YouTube API for niche trends & autocomplete queries...</b>', { parse_mode: 'HTML' });
+  await ctx.reply('⚡ <b>Scanning YouTube for niche trends & autocomplete queries...</b>', { parse_mode: 'HTML' });
   await runLiveModeScanner(telegramChatId);
 });
 
