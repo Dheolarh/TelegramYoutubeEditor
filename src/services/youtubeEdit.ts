@@ -253,3 +253,34 @@ export const deleteYouTubeComment = async (
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 };
+
+/**
+ * Post a top-level pinned comment under a YouTube video using commentThreads.insert API.
+ */
+export const postAndPinComment = async (
+  userId: string,
+  youtubeVideoId: string,
+  commentText: string
+): Promise<string> => {
+  const accessToken = await getValidAccessToken(userId);
+
+  const response = await axios.post(
+    'https://www.googleapis.com/youtube/v3/commentThreads',
+    {
+      snippet: {
+        videoId: youtubeVideoId,
+        topLevelComment: {
+          snippet: {
+            textOriginal: commentText,
+          },
+        },
+      },
+    },
+    {
+      params: { part: 'snippet' },
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+
+  return response.data?.id || '';
+};

@@ -11,6 +11,7 @@ import {
   updateVideoThumbnail,
   fetchVideoComments,
   replyToComment,
+  postAndPinComment,
 } from './youtubeEdit';
 import {
   generateAITitles,
@@ -44,7 +45,8 @@ interface UserState {
     | 'AWAITING_TAGS'
     | 'AWAITING_THUMBNAIL'
     | 'AWAITING_COMMENT_REPLY'
-    | 'AWAITING_THUMB_CUSTOM';
+    | 'AWAITING_THUMB_CUSTOM'
+    | 'AWAITING_PINNED_COMMENT';
   videoId: string;
   youtubeVideoId: string;
   extraData?: any;
@@ -534,7 +536,8 @@ bot.action(/^vid_(.+)$/, async (ctx) => {
   const keyboard = Markup.inlineKeyboard([
     [Markup.button.callback('✏️ Edit Title', `act_title_${video.id}`), Markup.button.callback('📝 Edit Description', `act_desc_${video.id}`)],
     [Markup.button.callback('🏷️ Edit Tags', `act_tags_${video.id}`), Markup.button.callback('🖼️ Update Thumbnail', `act_thumb_${video.id}`)],
-    [Markup.button.callback('💬 View Comments', `act_comments_${video.id}`), Markup.button.callback('🤖 AI Optimize', `act_ai_${video.id}`)],
+    [Markup.button.callback('💬 View Comments', `act_comments_${video.id}`), Markup.button.callback('📌 Pinned Comment', `act_pincmt_${video.id}`)],
+    [Markup.button.callback('🤖 AI Optimize', `act_ai_${video.id}`)],
   ]);
 
   if (video.thumbnailUrl) {
@@ -587,6 +590,14 @@ bot.action(/^act_thumb_(.+)$/, async (ctx) => {
   if (!video) return;
   userStateMap.set(ctx.from.id.toString(), { action: 'AWAITING_THUMBNAIL', videoId: video.id, youtubeVideoId: video.youtubeVideoId });
   await ctx.reply(`🖼️ <b>Upload thumbnail for:</b> "${video.title}"\n\nSend a photo in this chat:`, { parse_mode: 'HTML' });
+});
+
+bot.action(/^act_pincmt_(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const video = await prisma.video.findUnique({ where: { id: ctx.match[1] } });
+  if (!video) return;
+  userStateMap.set(ctx.from.id.toString(), { action: 'AWAITING_PINNED_COMMENT', videoId: video.id, youtubeVideoId: video.youtubeVideoId });
+  await ctx.reply(`📌 <b>Create & Pin Comment for:</b>\n"${video.title}"\n\nSend your comment text to post & pin on YouTube:`, { parse_mode: 'HTML' });
 });
 
 // ── Comments ──────────────────────────────────────────────────────────────────
@@ -1059,6 +1070,11 @@ bot.on('text', async (ctx: any) => {
       await replyToComment(connData.user.id, commentId, text);
       userStateMap.delete(telegramChatId);
       await ctx.reply('✅ <b>Reply Posted!</b>', { parse_mode: 'HTML' });
+    } else if (state.action === 'AWAITING_PINNED_COMMENT') {
+      await ctx.reply('⏳ <b>Posting and pinning comment on YouTube...</b>', { parse_mode: 'HTML' });
+      await postAndPinComment(connData.user.id, state.youtubeVideoId, text);
+      userStateMap.delete(telegramChatId);
+      await ctx.reply(`✅ <b>Comment Posted & Pinned on YouTube!</b>\n\n💬 "${text}"`, { parse_mode: 'HTML' });
     } else if (state.action === 'AWAITING_THUMB_CUSTOM') {
       const video = await prisma.video.findUnique({ where: { id: state.videoId } });
       if (!video) return;

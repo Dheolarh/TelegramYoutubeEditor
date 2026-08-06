@@ -50,6 +50,7 @@ export const fetchYouTubeNicheTrends = async (
         maxResults: 5,
       },
       headers: { Authorization: `Bearer ${accessToken}` },
+      timeout: 8000,
     });
 
     const items = response.data.items || [];

@@ -1,5 +1,6 @@
 import { prisma } from '../config/db';
 import { bot } from './telegramBot';
+import axios from 'axios';
 import { fetchYouTubeNicheTrends } from './youtubeTrendsService';
 import { generateAIContentSuggestion, AIContentSuggestion } from './aiService';
 import { Markup } from 'telegraf';
@@ -63,7 +64,13 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
           const buffer = Buffer.from(base64Data, 'base64');
           await bot.telegram.sendPhoto(user.telegramChatId, { source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
         } else {
-          await bot.telegram.sendPhoto(user.telegramChatId, suggestion.thumbnailUrl, { caption, parse_mode: 'HTML', ...keyboard });
+          try {
+            const imgRes = await axios.get(suggestion.thumbnailUrl, { responseType: 'arraybuffer', timeout: 7000 });
+            const buffer = Buffer.from(imgRes.data);
+            await bot.telegram.sendPhoto(user.telegramChatId, { source: buffer }, { caption, parse_mode: 'HTML', ...keyboard });
+          } catch (e) {
+            await bot.telegram.sendMessage(user.telegramChatId, caption, { parse_mode: 'HTML', ...keyboard });
+          }
         }
         console.log(`✅ Live Mode post suggestion sent to user ${user.telegramChatId}`);
       } catch (tgErr: any) {
