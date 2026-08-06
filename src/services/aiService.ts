@@ -262,7 +262,7 @@ TASK: Convert the title, existing thumbnail context, and requested edit into a c
 CRITICAL RULES:
 ${
   isUpgrade && !customInstructions
-    ? `- STRICT THUMBNAIL REMASTER RULE: The video already has an existing thumbnail ("${currentThumbnailUrl}"). DO NOT deviate from the core visual theme, game/sport, or subject! Remaster the existing thumbnail style by enhancing 3D contrast, saturation, lighting, and focal clarity while preserving the original subject matter.`
+    ? `- THUMBNAIL REMASTER & PROP ADAPTATION RULE: The video has an existing thumbnail ("${currentThumbnailUrl}"). Preserve the core subject/theme while DYNAMICALLY UPDATING background props, text overlays, season badges, jersey kits, and thematic elements to perfectly fit the title ("${title}")! Upgrade 3D contrast, saturation, and 4k focal clarity.`
     : `- Focus 100% on the core subject specified by the user or video title.`
 }
 - Strip out conversational phrases like "Change the picture to", "Can you make", "Make it look like".
