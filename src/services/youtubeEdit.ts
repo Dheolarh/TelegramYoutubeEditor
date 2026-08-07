@@ -295,26 +295,20 @@ export const likeYouTubeComment = async (
   const accessToken = await getValidAccessToken(userId);
   const cleanId = commentId.trim();
 
-  // Primary Attempt: youtube.googleapis.com
   try {
-    const url1 = `https://youtube.googleapis.com/youtube/v3/comments/setRating?id=${encodeURIComponent(cleanId)}&rating=like`;
-    await axios.post(url1, null, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    console.log(`👍 Liking YouTube comment ID: "${cleanId}"...`);
+    await axios({
+      method: 'post',
+      url: 'https://www.googleapis.com/youtube/v3/comments/setRating',
+      params: {
+        id: cleanId,
+        rating: 'like',
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
-    console.log(`✅ Successfully liked comment ${cleanId} via youtube.googleapis.com`);
-    return;
-  } catch (e1: any) {
-    console.warn(`⚠️ youtube.googleapis.com failed: ${e1.message}. Trying www.googleapis.com...`);
-  }
-
-  // Secondary Attempt: www.googleapis.com with params object
-  try {
-    const url2 = `https://www.googleapis.com/youtube/v3/comments/setRating?id=${encodeURIComponent(cleanId)}&rating=like`;
-    await axios.post(url2, null, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    console.log(`✅ Successfully liked comment ${cleanId} via www.googleapis.com`);
-    return;
+    console.log(`✅ Successfully liked comment ${cleanId}`);
   } catch (err: any) {
     const errorDetails = err.response?.data?.error?.message || err.response?.data?.error?.errors?.[0]?.reason || err.message;
     console.error('❌ likeYouTubeComment Error:', {
