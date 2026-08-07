@@ -12,7 +12,7 @@ We built YouTube Channel AI Manager to condense the entire creator workflow into
 The project is a personalized, self-hosted Telegram bot connected directly to a creator's YouTube channel via Google OAuth 2.0. From Telegram, creators can:
 
 1. **Manage Videos with Interactive Menus:** Browse paginated video lists (`/videos`) showing live views, likes, and comment counts, and edit metadata on the fly.
-2. **Generate & Remaster 4K AI Thumbnails:** Create 16:9 gaming and tech thumbnails using FLUX.1 (or DALL-E 3 / Google Imagen 3), remaster existing covers, or generate customized thumbnails from text prompts and reference photos.
+2. **Generate & Remaster 4K AI Thumbnails:** Create 16:9 gaming and tech thumbnails using a multi-tier AI image fallback chain (ChatGPT DALL-E 3 -> Gemini Imagen 3 -> FLUX.1), remaster existing covers, or generate customized thumbnails from text prompts and reference photos.
 3. **Optimize SEO Metadata:** Instantly generate click-worthy titles, full timestamped descriptions, and high-volume YouTube tags powered by Google Gemini AI.
 4. **Post & Pin Creator Comments:** Write, post, and pin top-level creator comments under any video directly from chat.
 5. **Automate Comment Moderation:** A background cron job periodically scans video comments and automatically deletes toxic profanity, hate speech, and spam links (`/moderation`).
@@ -25,7 +25,7 @@ The project is a personalized, self-hosted Telegram bot connected directly to a 
 - **YouTube Integration:** Connects securely via Google OAuth 2.0, interacting directly with the YouTube Data API v3 and YouTube Analytics API to manage videos, comments, thumbnails, and channel stats.
 - **AI Engine Pipeline:** 
   - **Text AI:** Utilizes Google Gemini 2.5 Flash (with OpenAI and DeepSeek fallbacks) to sanitize user prompts, craft visual instructions, generate SEO tags, and analyze channel metrics.
-  - **Image AI:** Employs Pollinations FLUX.1 with custom prompt engineering to generate 4K 16:9 YouTube cover art.
+  - **Image AI:** Multi-tier fallback pipeline that prioritizes ChatGPT's OpenAI DALL-E 3 and Gemini's Google Imagen 3 if API keys exist, before gracefully falling back to Pollinations FLUX.1 for 4K 16:9 YouTube cover art.
 - **Data Persistence & Security:** Uses Prisma ORM with Neon PostgreSQL to store user OAuth tokens, channel settings, custom niches, and video caches, protected by an environment-based Telegram Chat ID security lock (`TELEGRAM_ALLOWED_CHAT_ID`).
 
 ## Built With
