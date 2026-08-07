@@ -714,7 +714,7 @@ bot.action(/^lc_(.+)$/, async (ctx: any) => {
       );
     } catch (e) {}
   } catch (err: any) {
-    await ctx.answerCbQuery({ text: `❌ ${err.message}`, show_alert: true });
+    await ctx.answerCbQuery(`❌ ${err.message}`, { show_alert: true });
   }
 });
 
