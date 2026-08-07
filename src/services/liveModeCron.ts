@@ -41,9 +41,19 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
       }
 
       const channel = uAny.channels[0];
-      const nicheQuery = channel.title || 'Gaming Technology';
+      const recentVideos = await prisma.video.findMany({
+        where: { channelId: channel.id },
+        take: 3,
+        select: { title: true, tags: true },
+      });
 
-      console.log(`🔍 Live Mode scanning trends for channel "${channel.title}"...`);
+      let nicheQuery = channel.title || 'Gaming Technology';
+      if (recentVideos.length > 0) {
+        const videoTopics = recentVideos.map((v) => v.title).join(' ');
+        nicheQuery = `${channel.title} ${videoTopics}`.trim();
+      }
+
+      console.log(`🔍 Live Mode scanning trends for channel "${channel.title}" (Niche: "${nicheQuery.slice(0, 40)}...")...`);
 
       // 1. Fetch YouTube-specific niche trends & autocomplete search keywords
       const { trends, isExpandedSearch } = await fetchYouTubeNicheTrends(user.id, nicheQuery);
