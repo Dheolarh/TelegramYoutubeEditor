@@ -294,15 +294,20 @@ export const likeYouTubeComment = async (
 ): Promise<void> => {
   const accessToken = await getValidAccessToken(userId);
 
-  await axios.post(
-    'https://www.googleapis.com/youtube/v3/comments/setRating',
-    null,
-    {
-      params: {
-        id: commentId,
-        rating: 'like',
-      },
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }
-  );
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/comments/setRating?id=${encodeURIComponent(commentId)}&rating=like`;
+    await axios.post(
+      url,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  } catch (err: any) {
+    console.error('❌ likeYouTubeComment Error:', err.response?.data || err.message);
+    throw new Error(err.response?.data?.error?.message || err.message);
+  }
 };
