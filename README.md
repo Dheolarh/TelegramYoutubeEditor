@@ -1,4 +1,4 @@
-# 🤖 YouTube Channel AI Manager & Automation Telegram Bot
+# YouTube Channel AI Manager & Automation Telegram Bot
 
 An all-in-one, personalized, self-hosted Telegram Bot that acts as an **AI Co-Pilot for YouTube Creators**. 
 
@@ -6,22 +6,22 @@ Manage your entire YouTube channel directly from Telegram—generate 4K thumbnai
 
 ---
 
-## ✨ Features
+## Features
 
-- 📹 **Paginated Video Manager (`/videos`):** Browse and manage your YouTube channel's videos in interactive 10-video pages with live view, like, and comment stats. Tap any video to open its dedicated control menu for instant title, description, tag, thumbnail, comment, and AI optimization edits.
-- 🖼️ **4K AI Thumbnail Generation & Remastering:** Remaster existing video thumbnails or generate high-CTR 16:9 cover art using **Pollinations FLUX.1** (Free, zero API key required) with optional **OpenAI DALL-E 3** or **Google Imagen 3** fallbacks. Includes reference image styling and text prompts.
-- ✏️ **AI SEO Title, Description & Keyword Tag Suite:** Instantly generate viral, high-CTR titles, full timestamps-ready descriptions, and optimized YouTube tags tailored to your niche.
-- 📌 **Create & Pin Comments:** Compose and pin top-level creator comments under any YouTube video directly inside Telegram.
-- 🛡️ **Automated Comment Moderation (Background Cron):** Background cron job that periodically scans video comments and automatically deletes toxic profanity, hate speech, and spam links using `leo-profanity` + regex filtering.
-- ⚡ **Live Mode Trend & Viewer Search Intent Scanner:** Automatically polls YouTube API for viral 48h niche trends and real-time viewer autocomplete search queries, generating an AI Market Intelligence Digest.
-- 🎯 **Custom Niche Tracking (`/setniche`):** Set or override custom niche topics (e.g. `gaming, tech, football`) for targeted live trend scanning.
-- 📊 **Channel Analytics Dashboard:** View 7-day, 30-day, or 90-day views, watch time, subscriber growth, and top-performing videos with AI performance insights.
-- 💬 **Interactive Comment Manager:** Fetch top comments on recent videos and post creator replies directly from Telegram.
-- 🔒 **Self-Hosted Personal Security Lock:** Restricted via `TELEGRAM_ALLOWED_CHAT_ID` so only your authorized Telegram account can control your YouTube channel.
+- **Paginated Video Manager (`/videos`):** Browse and manage your YouTube channel's videos in interactive 10-video pages with live view, like, and comment stats. Tap any video to open its dedicated control menu for instant title, description, tag, thumbnail, comment, and AI optimization edits.
+- **4K AI Thumbnail Generation & Remastering:** Remaster existing video thumbnails or generate high-CTR 16:9 cover art using **Pollinations FLUX.1** (Free, zero API key required) with optional **OpenAI DALL-E 3** or **Google Imagen 3** fallbacks. Includes reference image styling and text prompts.
+- **AI SEO Title, Description & Keyword Tag Suite:** Instantly generate viral, high-CTR titles, full timestamps-ready descriptions, and optimized YouTube tags tailored to your niche.
+- **Create & Pin Comments:** Compose and pin top-level creator comments under any YouTube video directly inside Telegram.
+- **Automated Comment Moderation (Background Cron):** Background cron job that periodically scans video comments and automatically deletes toxic profanity, hate speech, and spam links using `leo-profanity` + regex filtering.
+- **Live Mode Trend & Viewer Search Intent Scanner:** Automatically polls YouTube API for viral 48h niche trends and real-time viewer autocomplete search queries, generating an AI Market Intelligence Digest.
+- **Custom Niche Tracking (`/setniche`):** Set or override custom niche topics (e.g. `gaming, tech, football`) for targeted live trend scanning.
+- **Channel Analytics Dashboard:** View 7-day, 30-day, or 90-day views, watch time, subscriber growth, and top-performing videos with AI performance insights.
+- **Interactive Comment Manager:** Fetch top comments on recent videos and post creator replies directly from Telegram.
+- **Self-Hosted Personal Security Lock:** Restricted via `TELEGRAM_ALLOWED_CHAT_ID` so only your authorized Telegram account can control your YouTube channel.
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 - **Runtime & Framework:** Node.js, Express, TypeScript, Telegraf (Telegram Bot Framework)
 - **Database & ORM:** Prisma ORM, PostgreSQL (Neon / Supabase)
@@ -30,7 +30,7 @@ Manage your entire YouTube channel directly from Telegram—generate 4K thumbnai
 
 ---
 
-## 🚀 Step-by-Step Setup & Deployment Guide
+## Step-by-Step Setup & Deployment Guide
 
 Follow this guide to set up your Google Cloud API credentials, database, environment variables, and host the bot.
 
@@ -188,6 +188,6 @@ You can easily host this bot 24/7 for free on **Render.com**:
 
 ---
 
-## 📜 License
+## License
 
 MIT License © 2026. Built for YouTube Creators.

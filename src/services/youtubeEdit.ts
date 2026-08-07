@@ -296,7 +296,7 @@ export const likeYouTubeComment = async (
   const cleanId = commentId.trim();
 
   try {
-    console.log(`👍 Liking YouTube comment ID: "${cleanId}"...`);
+    console.log(`Liking YouTube comment ID: "${cleanId}"...`);
     await axios({
       method: 'post',
       url: 'https://www.googleapis.com/youtube/v3/comments/setRating',
@@ -308,10 +308,10 @@ export const likeYouTubeComment = async (
         Authorization: `Bearer ${accessToken}`,
       },
     });
-    console.log(`✅ Successfully liked comment ${cleanId}`);
+    console.log(`Successfully liked comment ${cleanId}`);
   } catch (err: any) {
     const errorDetails = err.response?.data?.error?.message || err.response?.data?.error?.errors?.[0]?.reason || err.message;
-    console.error('❌ likeYouTubeComment Error:', {
+    console.error('likeYouTubeComment Error:', {
       status: err.response?.status,
       data: err.response?.data,
       commentId: cleanId,

@@ -8,7 +8,7 @@ import { Markup } from 'telegraf';
  * Execute Live Mode trend scan & dispatch verified trend news digest to active Live Mode users.
  */
 export const runLiveModeScanner = async (specificChatId?: string): Promise<void> => {
-  console.log('📡 Running Live Mode YouTube trend scanner...');
+  console.log('Running Live Mode YouTube trend scanner...');
 
   try {
     const users = await prisma.user.findMany({
@@ -56,7 +56,7 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
         }
       }
 
-      console.log(`🔍 Live Mode scanning trends for channel "${channel.title}" (Niche: "${nicheQuery.slice(0, 40)}...")...`);
+      console.log(`Live Mode scanning trends for channel "${channel.title}" (Niche: "${nicheQuery.slice(0, 40)}...")...`);
 
       // 1. Fetch YouTube-specific niche trends & autocomplete search keywords
       const { trends, isExpandedSearch } = await fetchYouTubeNicheTrends(user.id, nicheQuery);
@@ -120,15 +120,15 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
 
       try {
         await bot.telegram.sendMessage(user.telegramChatId, digestText, { parse_mode: 'HTML', ...keyboard });
-        console.log(`✅ Live Mode trend digest sent to user ${user.telegramChatId}`);
+        console.log(`Live Mode trend digest sent to user ${user.telegramChatId}`);
       } catch (tgErr: any) {
-        console.warn(`⚠️ Could not send Live Mode trend digest to Telegram:`, tgErr.message);
+        console.warn(`Could not send Live Mode trend digest to Telegram:`, tgErr.message);
       }
 
       await new Promise((r) => setTimeout(r, 250)); // Rate limit buffer
     }
   } catch (err: any) {
-    console.error('❌ Error in Live Mode scanner:', err.message);
+    console.error('Error in Live Mode scanner:', err.message);
     if (specificChatId) {
       try {
         await bot.telegram.sendMessage(

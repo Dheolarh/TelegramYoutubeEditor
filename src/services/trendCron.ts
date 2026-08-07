@@ -7,7 +7,7 @@ import { generateAITitles } from './aiService';
  * and dispatches proactive Telegram trend alerts.
  */
 export const runTrendAlertScanner = async (): Promise<void> => {
-  console.log('🔍 Running background trend alert scanner...');
+  console.log('Running background trend alert scanner...');
 
   try {
     const channels = await prisma.channel.findMany({
@@ -37,15 +37,15 @@ export const runTrendAlertScanner = async (): Promise<void> => {
             `Use /videos to review and update your video metadata!`;
 
           await bot.telegram.sendMessage(ownerChatId, alertMsg, { parse_mode: 'Markdown' });
-          console.log(`✅ Dispatched trend alert for video "${olderVideo.title}" to ${ownerChatId}`);
+          console.log(`Dispatched trend alert for video "${olderVideo.title}" to ${ownerChatId}`);
         }
       } catch (err: any) {
-        console.warn(`⚠️ Trend scan warning for video ${olderVideo.title}:`, err.message);
+        console.warn(`Trend scan warning for video ${olderVideo.title}:`, err.message);
       }
 
       await new Promise((r) => setTimeout(r, 250)); // Rate limit buffer
     }
   } catch (error: any) {
-    console.error('❌ Error in trend scanner:', error.message);
+    console.error('Error in trend scanner:', error.message);
   }
 };

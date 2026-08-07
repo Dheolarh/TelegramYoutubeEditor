@@ -25,11 +25,11 @@ const runTextAIWithFallback = async (prompt: string): Promise<string> => {
       });
       const text = completion.choices[0]?.message?.content?.trim();
       if (text) {
-        console.log(`✅ Text AI generated using OpenAI (${model})`);
+        console.log(`Text AI generated using OpenAI (${model})`);
         return text;
       }
     } catch (err: any) {
-      console.warn(`⚠️ OpenAI Text AI failed: ${err.message}. Trying Gemini fallback...`);
+      console.warn(`OpenAI Text AI failed: ${err.message}. Trying Gemini fallback...`);
       errors.push(`OpenAI: ${err.message}`);
     }
   }
@@ -50,11 +50,11 @@ const runTextAIWithFallback = async (prompt: string): Promise<string> => {
         const result = await model.generateContent(prompt);
         const text = result.response.text().replace(/```json|```/g, '').trim();
         if (text) {
-          console.log(`✅ Text AI generated using Gemini (${geminiModel})`);
+          console.log(`Text AI generated using Gemini (${geminiModel})`);
           return text;
         }
       } catch (err: any) {
-        console.warn(`⚠️ Gemini (${geminiModel}) failed: ${err.message}`);
+        console.warn(`Gemini (${geminiModel}) failed: ${err.message}`);
         errors.push(`Gemini (${geminiModel}): ${err.message}`);
       }
     }
@@ -74,11 +74,11 @@ const runTextAIWithFallback = async (prompt: string): Promise<string> => {
       });
       const text = completion.choices[0]?.message?.content?.trim();
       if (text) {
-        console.log(`✅ Text AI generated using DeepSeek (${model})`);
+        console.log(`Text AI generated using DeepSeek (${model})`);
         return text;
       }
     } catch (err: any) {
-      console.warn(`⚠️ DeepSeek Text AI failed: ${err.message}`);
+      console.warn(`DeepSeek Text AI failed: ${err.message}`);
       errors.push(`DeepSeek: ${err.message}`);
     }
   }

@@ -23,7 +23,7 @@ export const isProfaneOrToxic = (text: string): boolean => {
  * Background Cron Job: Scans connected channel videos for profane comments and deletes them.
  */
 export const runCommentModerationScanner = async (specificChatId?: string): Promise<void> => {
-  console.log('🛡️ Running Automated Comment Moderation Scanner...');
+  console.log('Running Automated Comment Moderation Scanner...');
 
   try {
     const users = await prisma.user.findMany({
@@ -50,7 +50,7 @@ export const runCommentModerationScanner = async (specificChatId?: string): Prom
 
           for (const c of comments) {
             if (isProfaneOrToxic(c.textDisplay)) {
-              console.log(`🗑️ Deleting profane comment by ${c.authorName}: "${c.textDisplay}"`);
+              console.log(`Deleting profane comment by ${c.authorName}: "${c.textDisplay}"`);
               await deleteYouTubeComment(user.id, c.commentId);
               totalDeleted++;
               deletedLogs.push({
@@ -83,6 +83,6 @@ export const runCommentModerationScanner = async (specificChatId?: string): Prom
       }
     }
   } catch (err: any) {
-    console.error('❌ Error in Comment Moderation scanner:', err.message);
+    console.error('Error in Comment Moderation scanner:', err.message);
   }
 };

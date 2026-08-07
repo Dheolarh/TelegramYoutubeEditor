@@ -21,7 +21,7 @@ export const fetchYouTubeAutocompleteKeywords = async (query: string): Promise<s
     const keywords: string[] = res.data?.[1] || [];
     return keywords.slice(0, 10);
   } catch (err: any) {
-    console.warn('⚠️ YouTube Autocomplete fetch error:', err.message);
+    console.warn('YouTube Autocomplete fetch error:', err.message);
     const yr = new Date().getFullYear();
     return [`${query} ${yr}`, `${query} tutorial`, `${query} review`, `${query} gameplay`, `${query} update` ];
   }
@@ -61,7 +61,7 @@ export const fetchYouTubeNicheTrends = async (
     // Fallback 1: If 0 items found in 48h, mark expanded search and query without 48h restriction
     if (items.length === 0) {
       isExpandedSearch = true;
-      console.log(`ℹ️ 0 items found for "${cleanNiche}" in 48h. Expanding search to recent days...`);
+      console.log(`0 items found for "${cleanNiche}" in 48h. Expanding search to recent days...`);
       response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
         params: {
           q: cleanNiche,
@@ -94,7 +94,7 @@ export const fetchYouTubeNicheTrends = async (
       return { trends: results, isExpandedSearch };
     }
   } catch (err: any) {
-    console.warn('⚠️ YouTube Niche Search error:', err.message);
+    console.warn('YouTube Niche Search error:', err.message);
   }
 
   // Fallback 2: Guaranteed autocomplete trend items

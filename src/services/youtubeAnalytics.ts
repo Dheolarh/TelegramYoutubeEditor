@@ -64,7 +64,7 @@ export const fetchChannelAnalytics = async (
         comments = row[4] || 0;
       }
     } catch (e: any) {
-      console.warn('⚠️ YouTube Analytics overview report error:', e.message);
+      console.warn('YouTube Analytics overview report error:', e.message);
     }
 
     // 2. Fetch Traffic Sources Breakdown
@@ -99,7 +99,7 @@ export const fetchChannelAnalytics = async (
         percentage: Math.round(((r[1] || 0) / trafficTotal) * 100),
       }));
     } catch (e: any) {
-      console.warn('⚠️ YouTube Analytics traffic sources error:', e.message);
+      console.warn('YouTube Analytics traffic sources error:', e.message);
     }
 
     // 3. Fetch Demographics Breakdown
@@ -123,11 +123,11 @@ export const fetchChannelAnalytics = async (
         percentage: Math.round(r[1] || 0),
       }));
     } catch (e: any) {
-      console.warn('⚠️ YouTube Analytics demographics error:', e.message);
+      console.warn('YouTube Analytics demographics error:', e.message);
     }
 
   } catch (err: any) {
-    console.warn('⚠️ Primary Analytics fetch failed:', err.message);
+    console.warn('Primary Analytics fetch failed:', err.message);
   }
 
   // Fallbacks if data empty or channel newly connected
