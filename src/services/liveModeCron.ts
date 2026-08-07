@@ -46,7 +46,17 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
       console.log(`🔍 Live Mode scanning trends for channel "${channel.title}"...`);
 
       // 1. Fetch YouTube-specific niche trends & autocomplete search keywords
-      const trends = await fetchYouTubeNicheTrends(user.id, nicheQuery);
+      const { trends, isExpandedSearch } = await fetchYouTubeNicheTrends(user.id, nicheQuery);
+
+      if (isExpandedSearch && specificChatId) {
+        try {
+          await bot.telegram.sendMessage(
+            user.telegramChatId,
+            'ℹ️ <b>Couldn\'t find notable trends in the last 48 hrs. Expanding search to recent days & viewer search intent...</b>',
+            { parse_mode: 'HTML' }
+          );
+        } catch (e) {}
+      }
 
       // 2. Pass raw trends to AI for verification & market intelligence digest (with 10s max timeout)
       let digestItems: any[] = [];

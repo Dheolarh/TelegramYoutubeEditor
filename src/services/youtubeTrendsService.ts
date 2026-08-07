@@ -27,11 +27,17 @@ export const fetchYouTubeAutocompleteKeywords = async (query: string): Promise<s
   }
 };
 
+export interface NicheTrendsResult {
+  trends: YouTubeTrendItem[];
+  isExpandedSearch: boolean;
+}
+
 export const fetchYouTubeNicheTrends = async (
   userId: string,
   nicheQuery: string = 'Gaming'
-): Promise<YouTubeTrendItem[]> => {
+): Promise<NicheTrendsResult> => {
   const cleanNiche = nicheQuery.replace(/[^\w\s]/gi, '').split(' ').slice(0, 3).join(' ') || 'Gaming';
+  let isExpandedSearch = false;
 
   try {
     const accessToken = await getValidAccessToken(userId);
@@ -52,9 +58,10 @@ export const fetchYouTubeNicheTrends = async (
 
     let items = response.data.items || [];
 
-    // Fallback 1: If 0 items found in 48h for narrow query, retry top viewCount videos without date constraint
+    // Fallback 1: If 0 items found in 48h, mark expanded search and query without 48h restriction
     if (items.length === 0) {
-      console.log(`ℹ️ 0 items found for "${cleanNiche}" in 48h. Retrying top niche videos...`);
+      isExpandedSearch = true;
+      console.log(`ℹ️ 0 items found for "${cleanNiche}" in 48h. Expanding search to recent days...`);
       response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
         params: {
           q: cleanNiche,
@@ -83,28 +90,34 @@ export const fetchYouTubeNicheTrends = async (
       });
     }
 
-    if (results.length > 0) return results;
+    if (results.length > 0) {
+      return { trends: results, isExpandedSearch };
+    }
   } catch (err: any) {
     console.warn('⚠️ YouTube Niche Search error:', err.message);
   }
 
   // Fallback 2: Guaranteed autocomplete trend items
+  isExpandedSearch = true;
   const yr = new Date().getFullYear();
   const fallbackKeywords = await fetchYouTubeAutocompleteKeywords(cleanNiche);
-  return [
-    {
-      title: `${cleanNiche} Trends & Viral Secrets (${yr})`,
-      channelTitle: 'YouTube Trends',
-      publishedAt: new Date().toISOString(),
-      snippet: `Viral topic trending in ${cleanNiche}`,
-      keywords: fallbackKeywords,
-    },
-    {
-      title: `${cleanNiche} Ultimate Setup & Update`,
-      channelTitle: 'YouTube Trends',
-      publishedAt: new Date().toISOString(),
-      snippet: `High volume viewer search topic`,
-      keywords: [`${cleanNiche} update`, `${cleanNiche} tutorial`, `${cleanNiche} tips`],
-    },
-  ];
+  return {
+    trends: [
+      {
+        title: `${cleanNiche} Trends & Viral Secrets (${yr})`,
+        channelTitle: 'YouTube Trends',
+        publishedAt: new Date().toISOString(),
+        snippet: `Viral topic trending in ${cleanNiche}`,
+        keywords: fallbackKeywords,
+      },
+      {
+        title: `${cleanNiche} Ultimate Setup & Update`,
+        channelTitle: 'YouTube Trends',
+        publishedAt: new Date().toISOString(),
+        snippet: `High volume viewer search topic`,
+        keywords: [`${cleanNiche} update`, `${cleanNiche} tutorial`, `${cleanNiche} tips`],
+      },
+    ],
+    isExpandedSearch: true,
+  };
 };
