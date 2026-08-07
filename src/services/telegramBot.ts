@@ -46,9 +46,10 @@ interface UserState {
     | 'AWAITING_THUMBNAIL'
     | 'AWAITING_COMMENT_REPLY'
     | 'AWAITING_THUMB_CUSTOM'
-    | 'AWAITING_PINNED_COMMENT';
-  videoId: string;
-  youtubeVideoId: string;
+    | 'AWAITING_PINNED_COMMENT'
+    | 'AWAITING_SET_NICHE';
+  videoId?: string;
+  youtubeVideoId?: string;
   extraData?: any;
 }
 
@@ -367,6 +368,61 @@ bot.action('cmd_live_scan', async (ctx: any) => {
   await ctx.reply('⚡ <b>Scanning YouTube for niche trends & autocomplete queries...</b>', { parse_mode: 'HTML' });
   await runLiveModeScanner(telegramChatId);
 });
+
+// ── /setniche (Set Custom Trend Scanning Niche) ───────────────────────────────
+const handleSetNicheCommand = async (ctx: any) => {
+  const telegramChatId = ctx.from.id.toString();
+  const connData = await getConnectedChannel(telegramChatId);
+
+  if (!connData) {
+    return ctx.reply('⚠️ <b>Connect your YouTube channel via /start first.</b>', { parse_mode: 'HTML' });
+  }
+
+  const user = await prisma.user.findUnique({ where: { telegramChatId } });
+  if (!user) return;
+
+  const input = ctx.message?.text?.replace('/setniche', '').trim();
+
+  if (input) {
+    if (input.toLowerCase() === 'clear' || input.toLowerCase() === 'reset') {
+      await prisma.user.update({
+        where: { telegramChatId },
+        data: { customNiche: null } as any,
+      });
+      userStateMap.delete(telegramChatId);
+      return ctx.reply(
+        '🎯 <b>Custom Niche Cleared!</b>\n\nLive trend scans will now automatically derive your niche from your channel title & recent video topics.',
+        { parse_mode: 'HTML' }
+      );
+    }
+
+    await prisma.user.update({
+      where: { telegramChatId },
+      data: { customNiche: input } as any,
+    });
+    userStateMap.delete(telegramChatId);
+    return ctx.reply(
+      `🎯 <b>Custom Trend Niche Updated!</b>\n\nYour live trend scans will now strictly track:\n<code>${input}</code>\n\n<i>To clear and revert to automatic detection, type: /setniche clear</i>`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
+  userStateMap.set(telegramChatId, { action: 'AWAITING_SET_NICHE' });
+
+  const currentNicheText = (user as any).customNiche
+    ? `<code>${(user as any).customNiche}</code>`
+    : '<i>Automatic (Channel Title + Recent Video Topics)</i>';
+
+  await ctx.reply(
+    `🎯 <b>Set Custom Channel Niche:</b>\n\n` +
+      `Current Niche: ${currentNicheText}\n\n` +
+      `Send your comma-separated niche topics below (e.g., <code>gaming, tech, lifestyle</code>):\n\n` +
+      `<i>Reply with "clear" to reset back to automatic.</i>`,
+    { parse_mode: 'HTML' }
+  );
+};
+
+bot.command('setniche', handleSetNicheCommand);
 
 // Live Mode Post Suggestion Actions
 bot.action(/^save_sug_(.+)$/, async (ctx) => {
@@ -982,7 +1038,7 @@ bot.on('photo', async (ctx: any) => {
 
     try {
       const res = await axios.get(fileLink.href, { responseType: 'arraybuffer' });
-      await updateVideoThumbnail(connData.user.id, state.youtubeVideoId, Buffer.from(res.data), 'image/jpeg');
+      await updateVideoThumbnail(connData.user.id, state.youtubeVideoId || '', Buffer.from(res.data), 'image/jpeg');
       userStateMap.delete(telegramChatId);
       await ctx.reply('✅ <b>Thumbnail Updated!</b>', { parse_mode: 'HTML' });
     } catch (err: any) {
@@ -1052,16 +1108,17 @@ bot.on('text', async (ctx: any) => {
 
   try {
     if (state.action === 'AWAITING_TITLE') {
-      const updated = await updateVideoTitle(connData.user.id, state.youtubeVideoId, text);
+      const updated = await updateVideoTitle(connData.user.id, state.youtubeVideoId || '', text);
       userStateMap.delete(telegramChatId);
       await ctx.reply(`✅ <b>Title Updated!</b>\n\n"${updated}"`, { parse_mode: 'HTML' });
     } else if (state.action === 'AWAITING_DESC') {
-      await updateVideoDescription(connData.user.id, state.youtubeVideoId, text);
+      await updateVideoDescription(connData.user.id, state.youtubeVideoId || '', text);
       userStateMap.delete(telegramChatId);
       await ctx.reply('✅ <b>Description Updated!</b>', { parse_mode: 'HTML' });
     } else if (state.action === 'AWAITING_TAGS') {
       const tags = text.split(',').map((t: string) => t.trim()).filter(Boolean);
-      const updated = await updateVideoTags(connData.user.id, state.youtubeVideoId, tags);
+      const updated = await updateVideoTags(connData.user.id, state.youtubeVideoId || '', tags);
+      userStateMap.delete(telegramChatId);
       userStateMap.delete(telegramChatId);
       await ctx.reply(`✅ <b>Tags Updated!</b>\n${updated.join(', ')}`, { parse_mode: 'HTML' });
     } else if (state.action === 'AWAITING_COMMENT_REPLY') {
@@ -1072,9 +1129,32 @@ bot.on('text', async (ctx: any) => {
       await ctx.reply('✅ <b>Reply Posted!</b>', { parse_mode: 'HTML' });
     } else if (state.action === 'AWAITING_PINNED_COMMENT') {
       await ctx.reply('⏳ <b>Posting and pinning comment on YouTube...</b>', { parse_mode: 'HTML' });
+      if (!state.youtubeVideoId) return;
       await postAndPinComment(connData.user.id, state.youtubeVideoId, text);
       userStateMap.delete(telegramChatId);
       await ctx.reply(`✅ <b>Comment Posted & Pinned on YouTube!</b>\n\n💬 "${text}"`, { parse_mode: 'HTML' });
+    } else if (state.action === 'AWAITING_SET_NICHE') {
+      if (text.toLowerCase() === 'clear' || text.toLowerCase() === 'reset') {
+        await prisma.user.update({
+          where: { telegramChatId },
+          data: { customNiche: null } as any,
+        });
+        userStateMap.delete(telegramChatId);
+        await ctx.reply(
+          '🎯 <b>Custom Niche Cleared!</b>\n\nLive trend scans will now automatically derive your niche from your channel title & recent video topics.',
+          { parse_mode: 'HTML' }
+        );
+      } else {
+        await prisma.user.update({
+          where: { telegramChatId },
+          data: { customNiche: text } as any,
+        });
+        userStateMap.delete(telegramChatId);
+        await ctx.reply(
+          `🎯 <b>Custom Trend Niche Updated!</b>\n\nYour live trend scans will now strictly track:\n<code>${text}</code>\n\n<i>To clear and revert to automatic detection, type: /setniche clear</i>`,
+          { parse_mode: 'HTML' }
+        );
+      }
     } else if (state.action === 'AWAITING_THUMB_CUSTOM') {
       const video = await prisma.video.findUnique({ where: { id: state.videoId } });
       if (!video) return;

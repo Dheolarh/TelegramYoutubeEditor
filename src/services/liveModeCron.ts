@@ -47,10 +47,13 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
         select: { title: true, tags: true },
       });
 
-      let nicheQuery = channel.title || 'Gaming Technology';
-      if (recentVideos.length > 0) {
-        const videoTopics = recentVideos.map((v) => v.title).join(' ');
-        nicheQuery = `${channel.title} ${videoTopics}`.trim();
+      let nicheQuery = (user as any).customNiche || '';
+      if (!nicheQuery) {
+        nicheQuery = channel.title || 'VLOG';
+        if (recentVideos.length > 0) {
+          const videoTopics = recentVideos.map((v) => v.title).join(' ');
+          nicheQuery = `${channel.title} ${videoTopics}`.trim();
+        }
       }
 
       console.log(`🔍 Live Mode scanning trends for channel "${channel.title}" (Niche: "${nicheQuery.slice(0, 40)}...")...`);
@@ -62,7 +65,8 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
         try {
           await bot.telegram.sendMessage(
             user.telegramChatId,
-            'ℹ️ <b>Couldn\'t find notable trends in the last 48 hrs. Expanding search to recent days & viewer search intent...</b>',
+            'ℹ️ <b>Couldn\'t find notable trends in the last 48 hrs. Expanding search to recent days & viewer search intent...</b>\n\n' +
+              '💡 <i>Tip: You can use /setniche to set specific topics for instant trend tracking (e.g. <code>/setniche gaming, tech, lifestyle</code>).</i>',
             { parse_mode: 'HTML' }
           );
         } catch (e) {}

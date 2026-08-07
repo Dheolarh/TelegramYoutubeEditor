@@ -13,6 +13,7 @@ model User {
   telegramChatId           String           @unique @map("telegram_chat_id")
   liveModeEnabled          Boolean          @default(false) @map("live_mode_enabled")
   commentModerationEnabled Boolean          @default(false) @map("comment_moderation_enabled")
+  customNiche              String?          @map("custom_niche")
   createdAt                DateTime         @default(now()) @map("created_at")
   updatedAt                DateTime         @updatedAt @map("updated_at")
   youtubeAccounts          YouTubeAccount[]
