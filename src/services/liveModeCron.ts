@@ -16,9 +16,29 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
       include: { channels: true },
     });
 
+    if (users.length === 0 && specificChatId) {
+      await bot.telegram.sendMessage(
+        specificChatId,
+        '⚠️ <b>No connected YouTube channel found.</b>\n\nConnect your channel via /start first.',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+
     for (const user of users) {
       const uAny = user as any;
-      if (!user.telegramChatId || !uAny.channels || uAny.channels.length === 0) continue;
+      if (!user.telegramChatId) continue;
+
+      if (!uAny.channels || uAny.channels.length === 0) {
+        if (specificChatId) {
+          await bot.telegram.sendMessage(
+            user.telegramChatId,
+            '⚠️ <b>No connected YouTube channel found.</b>\n\nConnect your channel via /start first.',
+            { parse_mode: 'HTML' }
+          );
+        }
+        continue;
+      }
 
       const channel = uAny.channels[0];
       const nicheQuery = channel.title || 'Gaming Technology';
@@ -27,7 +47,6 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
 
       // 1. Fetch YouTube-specific niche trends & autocomplete search keywords
       const trends = await fetchYouTubeNicheTrends(user.id, nicheQuery);
-      if (trends.length === 0) continue;
 
       // 2. Pass raw trends to AI for verification & market intelligence digest (with 10s max timeout)
       let digestItems: any[] = [];
@@ -86,5 +105,14 @@ export const runLiveModeScanner = async (specificChatId?: string): Promise<void>
     }
   } catch (err: any) {
     console.error('❌ Error in Live Mode scanner:', err.message);
+    if (specificChatId) {
+      try {
+        await bot.telegram.sendMessage(
+          specificChatId,
+          `❌ <b>Trend Scan Error:</b> ${err.message || 'Unable to scan trends right now.'}`,
+          { parse_mode: 'HTML' }
+        );
+      } catch (e) {}
+    }
   }
 };

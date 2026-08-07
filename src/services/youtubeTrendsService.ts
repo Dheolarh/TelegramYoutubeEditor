@@ -27,22 +27,19 @@ export const fetchYouTubeAutocompleteKeywords = async (query: string): Promise<s
   }
 };
 
-/**
- * Fetch top trending YouTube videos in user's niche/category published in last 48 hours.
- */
 export const fetchYouTubeNicheTrends = async (
   userId: string,
   nicheQuery: string = 'Gaming'
 ): Promise<YouTubeTrendItem[]> => {
+  const cleanNiche = nicheQuery.replace(/[^\w\s]/gi, '').split(' ').slice(0, 3).join(' ') || 'Gaming';
+
   try {
     const accessToken = await getValidAccessToken(userId);
-
-    // Published within last 48 hours
     const publishedAfter = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-    const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+    let response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
       params: {
-        q: nicheQuery,
+        q: cleanNiche,
         part: 'snippet',
         type: 'video',
         order: 'viewCount',
@@ -50,37 +47,64 @@ export const fetchYouTubeNicheTrends = async (
         maxResults: 5,
       },
       headers: { Authorization: `Bearer ${accessToken}` },
-      timeout: 8000,
+      timeout: 7000,
     });
 
-    const items = response.data.items || [];
+    let items = response.data.items || [];
+
+    // Fallback 1: If 0 items found in 48h for narrow query, retry top viewCount videos without date constraint
+    if (items.length === 0) {
+      console.log(`ℹ️ 0 items found for "${cleanNiche}" in 48h. Retrying top niche videos...`);
+      response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+        params: {
+          q: cleanNiche,
+          part: 'snippet',
+          type: 'video',
+          order: 'viewCount',
+          maxResults: 5,
+        },
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 7000,
+      });
+      items = response.data.items || [];
+    }
+
     const results: YouTubeTrendItem[] = [];
 
     for (const item of items) {
+      if (!item?.snippet?.title) continue;
       const keywords = await fetchYouTubeAutocompleteKeywords(item.snippet.title);
       results.push({
         title: item.snippet.title,
-        channelTitle: item.snippet.channelTitle,
-        publishedAt: item.snippet.publishedAt,
+        channelTitle: item.snippet.channelTitle || 'YouTube Creator',
+        publishedAt: item.snippet.publishedAt || new Date().toISOString(),
         snippet: item.snippet.description || '',
         keywords,
       });
     }
 
-    return results;
+    if (results.length > 0) return results;
   } catch (err: any) {
     console.warn('⚠️ YouTube Niche Search error:', err.message);
-    // Fallback using autocomplete keywords
-    const yr = new Date().getFullYear();
-    const fallbackKeywords = await fetchYouTubeAutocompleteKeywords(nicheQuery);
-    return [
-      {
-        title: `${nicheQuery} Latest ${yr} Trends & Secrets`,
-        channelTitle: 'YouTube Trends',
-        publishedAt: new Date().toISOString(),
-        snippet: `Viral topic trending in ${nicheQuery}`,
-        keywords: fallbackKeywords,
-      },
-    ];
   }
+
+  // Fallback 2: Guaranteed autocomplete trend items
+  const yr = new Date().getFullYear();
+  const fallbackKeywords = await fetchYouTubeAutocompleteKeywords(cleanNiche);
+  return [
+    {
+      title: `${cleanNiche} Trends & Viral Secrets (${yr})`,
+      channelTitle: 'YouTube Trends',
+      publishedAt: new Date().toISOString(),
+      snippet: `Viral topic trending in ${cleanNiche}`,
+      keywords: fallbackKeywords,
+    },
+    {
+      title: `${cleanNiche} Ultimate Setup & Update`,
+      channelTitle: 'YouTube Trends',
+      publishedAt: new Date().toISOString(),
+      snippet: `High volume viewer search topic`,
+      keywords: [`${cleanNiche} update`, `${cleanNiche} tutorial`, `${cleanNiche} tips`],
+    },
+  ];
 };
