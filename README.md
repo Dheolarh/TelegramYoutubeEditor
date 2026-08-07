@@ -8,6 +8,7 @@ Manage your entire YouTube channel directly from Telegram—generate 4K thumbnai
 
 ## ✨ Features
 
+- 📹 **Paginated Video Manager (`/videos`):** Browse and manage your YouTube channel's videos in interactive 10-video pages with live view, like, and comment stats. Tap any video to open its dedicated control menu for instant title, description, tag, thumbnail, comment, and AI optimization edits.
 - 🖼️ **4K AI Thumbnail Generation & Remastering:** Remaster existing video thumbnails or generate high-CTR 16:9 cover art using **Pollinations FLUX.1** (Free, zero API key required) with optional **OpenAI DALL-E 3** or **Google Imagen 3** fallbacks. Includes reference image styling and text prompts.
 - ✏️ **AI SEO Title, Description & Keyword Tag Suite:** Instantly generate viral, high-CTR titles, full timestamps-ready descriptions, and optimized YouTube tags tailored to your niche.
 - 📌 **Create & Pin Comments:** Compose and pin top-level creator comments under any YouTube video directly inside Telegram.
