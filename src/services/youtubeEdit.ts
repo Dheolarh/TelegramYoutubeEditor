@@ -284,3 +284,25 @@ export const postAndPinComment = async (
 
   return response.data?.id || '';
 };
+
+/**
+ * Like a YouTube comment via YouTube Comments API (comments.setRating).
+ */
+export const likeYouTubeComment = async (
+  userId: string,
+  commentId: string
+): Promise<void> => {
+  const accessToken = await getValidAccessToken(userId);
+
+  await axios.post(
+    'https://www.googleapis.com/youtube/v3/comments/setRating',
+    null,
+    {
+      params: {
+        id: commentId,
+        rating: 'like',
+      },
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+};

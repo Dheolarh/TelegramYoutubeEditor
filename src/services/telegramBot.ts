@@ -12,6 +12,7 @@ import {
   fetchVideoComments,
   replyToComment,
   postAndPinComment,
+  likeYouTubeComment,
 } from './youtubeEdit';
 import {
   generateAITitles,
@@ -670,20 +671,50 @@ bot.action(/^act_comments_(.+)$/, async (ctx) => {
     if (comments.length === 0) return ctx.reply('💬 <b>No comments found on this video.</b>', { parse_mode: 'HTML' });
 
     for (const c of comments) {
-      // Callback data must be <= 64 bytes for Telegram API (rc_<commentId>)
+      // Callback data must be <= 64 bytes for Telegram API (rc_<commentId>, lc_<commentId>)
       const replyCallback = `rc_${c.commentId}`;
-      const authorShort = c.authorName.length > 20 ? `${c.authorName.slice(0, 18)}..` : c.authorName;
+      const likeCallback = `lc_${c.commentId}`;
+      const authorShort = c.authorName.length > 15 ? `${c.authorName.slice(0, 13)}..` : c.authorName;
 
       await ctx.reply(
         `👤 <b>${c.authorName}</b>:\n"${c.textDisplay}"`,
         {
           parse_mode: 'HTML',
-          ...Markup.inlineKeyboard([[Markup.button.callback(`↩️ Reply to ${authorShort}`, replyCallback)]]),
+          ...Markup.inlineKeyboard([
+            [
+              Markup.button.callback('👍 Like', likeCallback),
+              Markup.button.callback(`↩️ Reply`, replyCallback),
+            ],
+          ]),
         }
       );
     }
   } catch (err: any) {
     await ctx.reply(`❌ <b>Failed to fetch comments:</b> ${err.message}`, { parse_mode: 'HTML' });
+  }
+});
+
+bot.action(/^lc_(.+)$/, async (ctx: any) => {
+  const telegramChatId = ctx.from.id.toString();
+  const connData = await getConnectedChannel(telegramChatId);
+  if (!connData) return ctx.answerCbQuery('⚠️ Channel not connected.');
+
+  const commentId = ctx.match[1];
+  try {
+    await likeYouTubeComment(connData.user.id, commentId);
+    await ctx.answerCbQuery('👍 Liked comment on YouTube!');
+    try {
+      await ctx.editMessageReplyMarkup(
+        Markup.inlineKeyboard([
+          [
+            Markup.button.callback('👍 Liked ❤️', 'dummy_liked'),
+            Markup.button.callback('↩️ Reply', `rc_${commentId}`),
+          ],
+        ]).reply_markup
+      );
+    } catch (e) {}
+  } catch (err: any) {
+    await ctx.answerCbQuery(`❌ Like Error: ${err.message}`);
   }
 });
 
